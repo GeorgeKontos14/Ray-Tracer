@@ -102,6 +102,32 @@ uint32_t BVH::nextNodeIdx()
     return idx;
 }
 
+//Helper method that calculates the minimum coordinates for a primitive
+// - primitive; a single triangle
+// - return; the minimum x,y,z coordinates of the primitive's vertices
+glm::vec3 primitiveMin(const BVHInterface::Primitive primitive)
+{
+    float minX = std::min(primitive.v0.position.x, std::min(primitive.v1.position.x, primitive.v2.position.x));
+    float minY = std::min(primitive.v0.position.y, std::min(primitive.v1.position.y, primitive.v2.position.y));
+    float minZ = std::min(primitive.v0.position.z, std::min(primitive.v1.position.z, primitive.v2.position.z));
+    return glm::vec3 { minX, minY, minZ };
+    // Time complexity: O(1)
+    // Space complexity: O(1)
+}
+
+// Helper method that calculates the maximum coordinates for a primitive
+//  - primitive; a single triangle
+//  - return; the maximum x,y,z coordinates of the primitive's vertices
+glm::vec3 primitiveMax(const BVHInterface::Primitive primitive)
+{
+    float maxX = std::max(primitive.v0.position.x, std::max(primitive.v1.position.x, primitive.v2.position.x));
+    float maxY = std::max(primitive.v0.position.y, std::max(primitive.v1.position.y, primitive.v2.position.y));
+    float maxZ = std::max(primitive.v0.position.z, std::max(primitive.v1.position.z, primitive.v2.position.z));
+    return glm::vec3 { maxX, maxY, maxZ };
+    // Time complexity: O(1)
+    // Space complexity: O(1)
+}
+
 // TODO: Standard feature
 // Given a BVH triangle, compute an axis-aligned bounding box around the primitive
 // - primitive; a single triangle to be stored in the BVH
@@ -112,19 +138,15 @@ AxisAlignedBox computePrimitiveAABB(const BVHInterface::Primitive primitive)
     //In order for the triangle to be inside the bounding box, we use the minimum and maximum coordinates of the
     //of the triangle in order to specify the lower and the upper corner respectively.
 
-    //Calculating the lower corner
-    float minX = std::min(primitive.v0.position.x, std::min(primitive.v1.position.x, primitive.v2.position.x));
-    float minY = std::min(primitive.v0.position.y, std::min(primitive.v1.position.y, primitive.v2.position.y));
-    float minZ = std::min(primitive.v0.position.z, std::min(primitive.v1.position.z, primitive.v2.position.z));
-    glm::vec3 lower = { minX, minY, minZ };
+    //Calculating the lower corner, using a helper method
+    glm::vec3 lower = primitiveMin(primitive);
 
-    //Calculating the upper corner
-    float maxX = std::max(primitive.v0.position.x, std::max(primitive.v1.position.x, primitive.v2.position.x));
-    float maxY = std::max(primitive.v0.position.y, std::max(primitive.v1.position.y, primitive.v2.position.y));
-    float maxZ = std::max(primitive.v0.position.z, std::max(primitive.v1.position.z, primitive.v2.position.z));
-    glm::vec3 upper = { maxX, maxY, maxZ };
+    //Calculating the upper corner, using a helper methid
+    glm::vec3 upper = primitiveMax(primitive);
 
     return { .lower = lower, .upper = upper };
+    // Time complexity: O(1)
+    // Space complexity: O(1)
 }
 
 // TODO: Standard feature
@@ -134,7 +156,36 @@ AxisAlignedBox computePrimitiveAABB(const BVHInterface::Primitive primitive)
 // This method is unit-tested, so do not change the function signature.
 AxisAlignedBox computeSpanAABB(std::span<const BVHInterface::Primitive> primitives)
 {
-    return { .lower = glm::vec3(0), .upper = glm::vec3(0) };
+    //In order to compute a bounding box that wraps around all triangles in the given span, we can set the lower corner to the minimum of the 
+    //coordinates of all the triangle vertices and the upper corner to the respective maximum.
+
+    //First, we initialize minimum and maxmum variables for all three coordinates
+    float minX = std::numeric_limits<float>::max();
+    float minY = std::numeric_limits<float>::max();
+    float minZ = std::numeric_limits<float>::max();
+    float maxX = std::numeric_limits<float>::min();
+    float maxY = std::numeric_limits<float>::min();
+    float maxZ = std::numeric_limits<float>::min();
+
+    //Then, we iterate through all primitives in the span, calculate its minimum and maximum coefficients using the same
+    //helper methods as for computePrimitiveAABB. We compare these to the current extrema and update them if necessary
+    glm::vec3 currentMin;
+    glm::vec3 currentMax;
+    for (BVHInterface::Primitive p : primitives) {
+        currentMin = primitiveMin(p);
+        currentMax = primitiveMax(p);
+        minX = std::min(currentMin.x, minX);
+        minY = std::min(currentMin.y, minY);
+        minZ = std::min(currentMin.z, minZ);
+        maxX = std::max(currentMax.x, maxX);
+        maxY = std::max(currentMax.y, maxY);
+        maxZ = std::max(currentMax.z, maxZ);
+    }
+    glm::vec3 lower = { minX, minY, minZ };
+    glm::vec3 upper = { maxX, maxY, maxZ };
+    return { .lower = lower, .upper = upper };
+    // Time Complexity: O(n), where n = length of primitives span
+    // Space complexity: O(1)
 }
 
 // TODO: Standard feature
@@ -150,6 +201,8 @@ glm::vec3 computePrimitiveCentroid(const BVHInterface::Primitive primitive)
     float avgY = (primitive.v0.position.y + primitive.v1.position.y + primitive.v2.position.y) / 3;
     float avgZ = (primitive.v0.position.z + primitive.v1.position.z + primitive.v2.position.z) / 3;
     return glm::vec3 { avgX, avgY, avgZ };
+    // Time Complexity: O(1)
+    // Space complexity: O(1)
 }
 
 // TODO: Standard feature
@@ -160,7 +213,119 @@ glm::vec3 computePrimitiveCentroid(const BVHInterface::Primitive primitive)
 // This method is unit-tested, so do not change the function signature.
 uint32_t computeAABBLongestAxis(const AxisAlignedBox& aabb)
 {
+    //We compute the difference between the maximum and the minimum of the x, y, z coefficients to fing the 
+    //length of the x, y and z axis respectively. Afterwards, we compare those to find the longest axis
+    float xAxis = aabb.upper.x - aabb.lower.x;
+    float yAxis = aabb.upper.y - aabb.lower.y;
+    float zAxis = aabb.upper.z - aabb.lower.z;
+    if (xAxis >= yAxis) {
+        if (xAxis >= zAxis)
+            return 0;
+        return 2;
+    } else {
+        if (yAxis >= zAxis)
+            return 1;
+        return 2;
+    }
     return 0;
+    // Time Complexity: O(1)
+    // Space Complexity: O(1)
+}
+
+// Helper method that sorts the primitives along the specified axis
+// - axis; 0, 1, 2 for x, y, z axis respectively
+// - data; vector containing all the primitives and their centroids
+// The sorting algorithm used is merge sort
+void sortPrimitiveData(uint32_t axis, std::vector<PrimitiveData> data) 
+{
+    if (data.size() < 2)
+        return;
+
+    //Split the vector in two vectors, left and right
+    std::vector<PrimitiveData> left;
+    std::vector<PrimitiveData> right;
+    for (int i = 0; i < data.size(); i++) {
+        if (i < data.size() / 2)
+            left.push_back(data[i]);
+        else
+            right.push_back(data[i]);
+    }
+
+    //Sort these two vectors recursively
+    sortPrimitiveData(axis, left);
+    sortPrimitiveData(axis, right);
+
+    //Merge left and right
+    data = mergeVectors(axis, left, right);
+    return;
+    // Time Complexity: O(nlog(n)), where n = data.size()
+    // Space Complexity: O(n)
+}
+
+// Merges two sorted vectors of primtives
+// - axis; 0, 1, 2 for x, y, z respectively
+// - v1; the first sorted vector
+// - v2; the second sorted vector
+std::vector<PrimitiveData> mergeVectors(uint32_t axis, std::vector<PrimitiveData> v1, std::vector<PrimitiveData> v2) 
+{
+    std::vector<PrimitiveData> merged;
+    int i = 0;
+    int j = 0;
+    int res;
+    PrimitiveData p1;
+    PrimitiveData p2;
+    while (i < v1.size() && j < v2.size()) {
+        p1 = v1[i];
+        p2 = v2[j];
+        res = comparePrimitives(axis, p1, p2);
+        if (res >= 0) {
+            merged.push_back(p2);
+            j++;
+        } else {
+            merged.push_back(p1);
+            i++;
+        }
+    }
+    while (i < v1.size()) {
+        merged.push_back(v1[i]);
+        i++;
+    }
+    while (j < v2.size()) {
+        merged.push_back(v2[j]);
+        j++;
+    }
+    return merged;
+    // Time Complexity: O(max(m, n)), where m = v1.size(), n = v2.size()
+    // Space Complexity: O(m+n)
+}
+
+// Compares two primitves along the specified axis
+// - axis; 0, 1, 2 for x, y, z axis respectively
+// - p1; the data of the first primitive
+// - p2; the data of the second primitive
+// - return; 1 if p1 > p2; 0 if p1 == p2; -1 if p1 < p2
+int comparePrimitives(uint32_t axis, PrimitiveData p1, PrimitiveData p2)
+{
+    float c1; //coefficient of p1 used in the comparison
+    float c2; //coefficient of p2 used in the comparison
+    if (axis == 0) {
+        c1 = p1.centroid.x;
+        c2 = p2.centroid.x;
+    } else if (axis == 1) {
+        c1 = p1.centroid.y;
+        c2 = p2.centroid.y;
+    } else {
+        c1 = p1.centroid.z;
+        c2 = p2.centroid.z;
+    }
+    if (c1 > c2)
+        return 1;
+    else if (c1 < c2)
+        return -1;
+    
+    return 0;
+    // Time complexity: O(1)
+    // Space complexity: O(1)
 }
 
 // TODO: Standard feature
@@ -176,8 +341,34 @@ uint32_t computeAABBLongestAxis(const AxisAlignedBox& aabb)
 size_t splitPrimitivesByMedian(const AxisAlignedBox& aabb, uint32_t axis, std::span<BVHInterface::Primitive> primitives)
 {
     using Primitive = BVHInterface::Primitive;
+    //At first, we create a vector of PrimitiveData objects for all the primitives;
+    //This way, we can sort the vector and then just extract the sorted primitives back to the primitives array
+    std::vector<PrimitiveData> data;
+    PrimitiveData current;
+    for (Primitive p : primitives) {
+        current.primitive = p;
+        current.centroid = computePrimitiveCentroid(p);
+        data.push_back(current);
+    }
 
-    return 0; // This is clearly not the solution
+    //Then, we call a helper method to sort this array
+    sortPrimitiveData(axis, data);
+
+    //We now modify the primitives span, so that the primitives are sorted along the given axis
+    for (int i = 0; i < data.size(); i++)
+        primitives[i] = data[i].primitive;
+
+    //All we need to do now is find which index to return;
+    //if the span has an even size then the split index should be size/2; this way,
+    //both the first and the second subspans will have size of size/2. If, however,
+    //the span has odd size, then the split index should be size/2+1, so that the 
+    //first subspan has one element more than the second subspan
+    int n = primitives.size();
+    if (n % 2 == 1)
+        return n / 2 + 1;
+    return n / 2;
+    // Time Complexity: O(nlog(n)), where n = primitives.size()
+    // Space Complexity: O(n)
 }
 
 // TODO: Standard feature

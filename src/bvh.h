@@ -3,6 +3,12 @@
 #include <framework/ray.h>
 #include <vector>
 
+// Auxiliary struct that holds the information of a primitive and its centroid.
+// Used for sorting in the splitPrimitvesByMedian method
+struct PrimitiveData {
+    BVHInterface::Primitive primitive;
+    glm::vec3 centroid;
+};
 // TODO: Standard feature
 // Given a BVH triangle, compute an axis-aligned bounding box around the primitive
 // For a description of the method's arguments, refer to 'bounding_volume_hierarchy.cpp'
@@ -40,6 +46,12 @@ size_t splitPrimitivesByMedian(const AxisAlignedBox& aabb, uint32_t axis, std::s
 // For a description of the method's arguments, refer to 'bounding_volume_hierarchy.cpp'
 // This method is unit-tested, so do not change the function signature.
 bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, HitInfo& hitInfo);
+
+glm::vec3 primitiveMin(const BVHInterface::Primitive primitive);
+glm::vec3 primitiveMax(const BVHInterface::Primitive primitive);
+void sortPrimitiveData(uint32_t axis, std::vector<PrimitiveData> data);
+std::vector<PrimitiveData> mergeVectors(uint32_t axis, std::vector<PrimitiveData> v1, std::vector<PrimitiveData> v2);
+int comparePrimitives(uint32_t axis, PrimitiveData p1, PrimitiveData p2);
 
 // The implementing class where you will put most of the BVH implementation; this class must conform
 // to BVHInterface for grading purposes; see `bvh_interface.h` for details
