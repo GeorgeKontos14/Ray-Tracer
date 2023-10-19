@@ -109,7 +109,22 @@ uint32_t BVH::nextNodeIdx()
 // This method is unit-tested, so do not change the function signature.
 AxisAlignedBox computePrimitiveAABB(const BVHInterface::Primitive primitive)
 {
-    return { .lower = glm::vec3(0), .upper = glm::vec3(0) };
+    //In order for the triangle to be inside the bounding box, we use the minimum and maximum coordinates of the
+    //of the triangle in order to specify the lower and the upper corner respectively.
+
+    //Calculating the lower corner
+    float minX = std::min(primitive.v0.position.x, std::min(primitive.v1.position.x, primitive.v2.position.x));
+    float minY = std::min(primitive.v0.position.y, std::min(primitive.v1.position.y, primitive.v2.position.y));
+    float minZ = std::min(primitive.v0.position.z, std::min(primitive.v1.position.z, primitive.v2.position.z));
+    glm::vec3 lower = { minX, minY, minZ };
+
+    //Calculating the upper corner
+    float maxX = std::max(primitive.v0.position.x, std::max(primitive.v1.position.x, primitive.v2.position.x));
+    float maxY = std::max(primitive.v0.position.y, std::max(primitive.v1.position.y, primitive.v2.position.y));
+    float maxZ = std::max(primitive.v0.position.z, std::max(primitive.v1.position.z, primitive.v2.position.z));
+    glm::vec3 upper = { maxX, maxY, maxZ };
+
+    return { .lower = lower, .upper = upper };
 }
 
 // TODO: Standard feature
@@ -129,7 +144,12 @@ AxisAlignedBox computeSpanAABB(std::span<const BVHInterface::Primitive> primitiv
 // This method is unit-tested, so do not change the function signature.
 glm::vec3 computePrimitiveCentroid(const BVHInterface::Primitive primitive)
 {
-    return glm::vec3(0);
+    //The centroid is the barycenter of the triangle; thus, its coefficients
+    //are the average of the coefficients of the triangle
+    float avgX = (primitive.v0.position.x + primitive.v1.position.x + primitive.v2.position.x) / 3;
+    float avgY = (primitive.v0.position.y + primitive.v1.position.y + primitive.v2.position.y) / 3;
+    float avgZ = (primitive.v0.position.z + primitive.v1.position.z + primitive.v2.position.z) / 3;
+    return glm::vec3 { avgX, avgY, avgZ };
 }
 
 // TODO: Standard feature
