@@ -447,11 +447,20 @@ BVH::Node BVH::buildLeafData(const Scene& scene, const Features& features, const
 {
     Node node;
     // TODO fill in the leaf's data; refer to `bvh_interface.h` for details
-
+    
+    //The bounding box of the node is the bounding box around all of its primitives
+    node.aabb = aabb;
+    //By having 1 as the first bit, we clarify that the node is a leaf, as intended in the file 'bvh_interface.h'. The rest of the value is the id of the 
+    //first primitive of the span
+    node.data[0] = 1 | primitives[0].meshID;
+    //Since the node is a leaf, the second element of data should indicate the amount of primitives in the node, ie, the size of the primitives span
+    node.data[1] = primitives.size();
     // Copy the current set of primitives to the back of the primitives vector
     std::copy(primitives.begin(), primitives.end(), std::back_inserter(m_primitives));
 
     return node;
+    // Time Complexity: O(1)
+    // Space Complexity: O(1)
 }
 
 // TODO: Standard feature
@@ -467,7 +476,17 @@ BVH::Node BVH::buildNodeData(const Scene& scene, const Features& features, const
 {
     Node node;
     // TODO fill in the node's data; refer to `bvh_interface.h` for details
+    
+    //The bounding box of the node is the bounding box around all of its primitives
+    node.aabb = aabb;
+    //Since the node is an inner node, the first element of data should be 0 followed by the index of the left child,
+    //and the second element should be the index of the rightChild
+    node.data[0] = 0 | leftChildIndex;
+    node.data[1] = rightChildIndex;
+
     return node;
+    // Time Complexity: O(1)
+    // Space Complexity: O(1)
 }
 
 // TODO: Standard feature
