@@ -530,7 +530,36 @@ void BVH::buildRecursive(const Scene& scene, const Features& features, std::span
     //        (hint; use `std::span::subspan()` to split into left/right ranges)
 
     // Just configure the current node as a giant leaf for now
-    m_nodes[nodeIndex] = buildLeafData(scene, features, aabb, primitives);
+    //m_nodes[nodeIndex] = buildLeafData(scene, features, aabb, primitives);
+
+    //Count the number of primitives to determine whether the node is a leaf or not
+    bool isLeafNode = primitives.size() <= LeafSize;
+    //If it is a leaf, we call the buildLeafData method and the leaf's primitives to m_primitives
+    if (isLeafNode) {
+        BVH::Node leaf = buildLeafData(scene, features, aabb, primitives);
+        for (BVH::Primitive p : primitives)
+            m_primitives.push_back(p);
+        return;
+    }
+
+    //If it is an inner node, we split the span of primitives
+    //Extra feature; to be implemented
+    if (features.extra.enableBvhSahBinning)
+        return;
+    //If the extra feature is disabled, we split by calculating the median
+    uint32_t longest = computeAABBLongestAxis(aabb);
+    size_t splitInd = splitPrimitivesByMedian(aabb, longest, primitives);
+    //Using the above split index, we split the primitives into the spans of the left and right child nodes
+    std::span<BVH::Primitive> leftPrimitives = primitives.subspan(0, splitInd);
+    std::span<BVH::Primitive> rightPrimitives = primitives.subspan(splitInd, primitives.size() - splitInd);
+    //We calculate the indices of the left and right children in the m_nodes vector
+    uint32_t leftInd = nextNodeIdx();
+    uint32_t rightInd = nextNodeIdx();
+    //We store the data of the current node in the m_nodes vector
+    m_nodes[nodeIndex] = buildNodeData(scene, features, aabb, leftInd, rightInd);
+    //Recursively build child nodes until we reach leaves
+    buildRecursive(scene, features, leftPrimitives, leftInd);
+    buildRecursive(scene, features, rightPrimitives, rightInd);
 }
 
 // TODO: Standard feature, or part of it
