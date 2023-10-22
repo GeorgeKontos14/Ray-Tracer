@@ -236,7 +236,7 @@ uint32_t computeAABBLongestAxis(const AxisAlignedBox& aabb)
 // - axis; 0, 1, 2 for x, y, z axis respectively
 // - data; vector containing all the primitives and their centroids
 // The sorting algorithm used is merge sort
-void sortPrimitiveData(uint32_t axis, std::vector<PrimitiveData> data) 
+void sortPrimitiveData(uint32_t axis, std::vector<PrimitiveData>& data) 
 {
     if (data.size() < 2)
         return;
@@ -266,6 +266,7 @@ void sortPrimitiveData(uint32_t axis, std::vector<PrimitiveData> data)
 // - axis; 0, 1, 2 for x, y, z respectively
 // - v1; the first sorted vector
 // - v2; the second sorted vector
+// - return; the sorted merged vector
 std::vector<PrimitiveData> mergeVectors(uint32_t axis, std::vector<PrimitiveData> v1, std::vector<PrimitiveData> v2) 
 {
     std::vector<PrimitiveData> merged;
@@ -297,6 +298,25 @@ std::vector<PrimitiveData> mergeVectors(uint32_t axis, std::vector<PrimitiveData
     return merged;
     // Time Complexity: O(max(m, n)), where m = v1.size(), n = v2.size()
     // Space Complexity: O(m+n)
+}
+
+// Helper method for testing
+bool equalVectors(std::vector<PrimitiveData> v1, std::vector<PrimitiveData> v2) {
+    if (v1.size() != v2.size())
+        return false;
+    for (int i = 0; i < v1.size(); i++)
+        if (v1[i].primitive != v2[i].primitive)
+            return false;
+    return true;
+}
+
+bool equalSpans(std::span<BVHInterface::Primitive> v1, std::span<BVHInterface::Primitive> v2) {
+    if (v1.size() != v2.size())
+        return false;
+    for (int i = 0; i < v1.size(); i++)
+        if (v1[i] != v2[i])
+            return false;
+    return true;
 }
 
 // Compares two primitves along the specified axis
@@ -338,7 +358,7 @@ int comparePrimitives(uint32_t axis, PrimitiveData p1, PrimitiveData p2)
 // - primitives; the modifiable range of triangles that requires sorting/splitting along an axis
 // - return;     the split position of the modified range of triangles
 // This method is unit-tested, so do not change the function signature.
-size_t splitPrimitivesByMedian(const AxisAlignedBox& aabb, uint32_t axis, std::span<BVHInterface::Primitive> primitives)
+size_t splitPrimitivesByMedian(const AxisAlignedBox& aabb, uint32_t axis, std::span<BVHInterface::Primitive>& primitives)
 {
     using Primitive = BVHInterface::Primitive;
     //At first, we create a vector of PrimitiveData objects for all the primitives;
@@ -560,21 +580,24 @@ void BVH::buildRecursive(const Scene& scene, const Features& features, std::span
     //Recursively build child nodes until we reach leaves
     buildRecursive(scene, features, leftPrimitives, leftInd);
     buildRecursive(scene, features, rightPrimitives, rightInd);
+    // Time Complexity: O(n(log(n))^2), where n = primitives.size()
+    // Space Complexity: O(nlog(n))
 }
+
 
 // TODO: Standard feature, or part of it
 // Compute the nr. of levels in your hierarchy after construction; useful for `debugDrawLevel()`
 // You are free to modify this function's signature, as long as the constructor builds a BVH
 void BVH::buildNumLevels()
 {
-    m_numLevels = 1;
+    
 }
 
 // Compute the nr. of leaves in your hierarchy after construction; useful for `debugDrawLeaf()`
 // You are free to modify this function's signature, as long as the constructor builds a BVH
 void BVH::buildNumLeaves()
 {
-    m_numLeaves = 1;
+
 }
 
 // Draw the bounding boxes of the nodes at the selected level. Use this function to visualize nodes

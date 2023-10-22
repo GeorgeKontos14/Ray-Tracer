@@ -39,7 +39,7 @@ uint32_t computeAABBLongestAxis(const AxisAlignedBox& aabb);
 // of the list is at least as big as the other, and both differ at most by one element in size.
 // For a description of the method's arguments, refer to 'bounding_volume_hierarchy.cpp'
 // This method is unit-tested, so do not change the function signature.
-size_t splitPrimitivesByMedian(const AxisAlignedBox& aabb, uint32_t axis, std::span<BVHInterface::Primitive> primitives);
+size_t splitPrimitivesByMedian(const AxisAlignedBox& aabb, uint32_t axis, std::span<BVHInterface::Primitive>& primitives);
 
 // TODO: Standard feature
 // Hierarchy traversal routine; called by the BVH's intersect(), you must implement this method.
@@ -49,9 +49,11 @@ bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, 
 
 glm::vec3 primitiveMin(const BVHInterface::Primitive primitive);
 glm::vec3 primitiveMax(const BVHInterface::Primitive primitive);
-void sortPrimitiveData(uint32_t axis, std::vector<PrimitiveData> data);
+void sortPrimitiveData(uint32_t axis, std::vector<PrimitiveData>& data);
 std::vector<PrimitiveData> mergeVectors(uint32_t axis, std::vector<PrimitiveData> v1, std::vector<PrimitiveData> v2);
 int comparePrimitives(uint32_t axis, PrimitiveData p1, PrimitiveData p2);
+bool equalVectors(std::vector<PrimitiveData> v1, std::vector<PrimitiveData> v2);
+bool equalSpans(std::span<BVHInterface::Primitive> v1, std::span<BVHInterface::Primitive> v2);
 
 // The implementing class where you will put most of the BVH implementation; this class must conform
 // to BVHInterface for grading purposes; see `bvh_interface.h` for details
