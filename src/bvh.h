@@ -56,6 +56,7 @@ bool equalVectors(std::vector<PrimitiveData> v1, std::vector<PrimitiveData> v2);
 bool equalSpans(std::span<BVHInterface::Primitive> v1, std::span<BVHInterface::Primitive> v2);
 std::vector<int> nextLevelIndices(std::vector<int> currentLevelIndices, std::vector<BVHInterface::Node> nodes);
 
+
 // The implementing class where you will put most of the BVH implementation; this class must conform
 // to BVHInterface for grading purposes; see `bvh_interface.h` for details
 struct BVH : public BVHInterface {

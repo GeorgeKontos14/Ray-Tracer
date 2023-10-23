@@ -391,6 +391,34 @@ size_t splitPrimitivesByMedian(const AxisAlignedBox& aabb, uint32_t axis, std::s
     // Space Complexity: O(n)
 }
 
+bool intersectRayWithNode(const BVHInterface& bvh, Ray& ray, int nodeInd, int& primInd, HitInfo hitInfo) {
+    BVHInterface::Node node = bvh.nodes()[nodeInd];
+    if (!intersectRayWithShape(node.aabb, ray))
+        return false;
+    if (node.isLeaf()) {
+        bool intersectPrim;
+        BVHInterface::Primitive p;
+        bool res = false;
+        int old_t = ray.t;
+        for (int i = node.primitiveOffset(); i < node.primitiveOffset() + node.primitiveCount(); i++) {
+            p = bvh.primitives()[i];
+            intersectPrim = intersectRayWithTriangle(p.v0.normal, p.v1.normal, p.v2.position, ray, hitInfo);
+            if (intersectPrim) {
+                res = true;
+                if (ray.t < old_t) {
+                    old_t = ray.t;
+                    primInd = i;
+                }
+            }
+        }
+
+        return false;
+    }
+    bool leftChild = intersectRayWithNode(bvh, ray, node.leftChild(), primInd, hitInfo);
+    bool rightChild = intersectRayWithNode(bvh, ray, node.rightChild(), primInd, hitInfo);
+    return leftChild || rightChild;
+}
+
 // TODO: Standard feature
 // Hierarchy traversal routine; called by the BVH's intersect(),
 // you must implement this method and implement it carefully!
@@ -436,6 +464,11 @@ bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, 
         //
         // Note that it is entirely possible for a ray to hit a leaf node, but not its primitives,
         // and it is likewise possible for a ray to hit both children of a node.
+        int primInd = 0;
+        is_hit = intersectRayWithNode(bvh, ray, 0, primInd, hitInfo);
+        if (is_hit)
+            updateHitInfo(state, bvh.primitives()[primInd], ray, hitInfo);
+        return is_hit;
     } else {
         // Naive implementation; simply iterates over all primitives
         for (const auto& prim : primitives) {
