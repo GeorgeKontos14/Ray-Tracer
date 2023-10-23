@@ -472,7 +472,7 @@ BVH::Node BVH::buildLeafData(const Scene& scene, const Features& features, const
     node.aabb = aabb;
     //By having 1 as the first bit, we clarify that the node is a leaf, as intended in the file 'bvh_interface.h'. The rest of the value is the id of the 
     //first primitive of the span
-    node.data[0] = 1 | primitives[0].meshID;
+    node.data[0] = 1 | m_primitives.size();
     //Since the node is a leaf, the second element of data should indicate the amount of primitives in the node, ie, the size of the primitives span
     node.data[1] = primitives.size();
     // Copy the current set of primitives to the back of the primitives vector
@@ -501,7 +501,7 @@ BVH::Node BVH::buildNodeData(const Scene& scene, const Features& features, const
     node.aabb = aabb;
     //Since the node is an inner node, the first element of data should be 0 followed by the index of the left child,
     //and the second element should be the index of the rightChild
-    node.data[0] = 0 | leftChildIndex;
+    node.data[0] = leftChildIndex;
     node.data[1] = rightChildIndex;
 
     return node;
@@ -557,8 +557,6 @@ void BVH::buildRecursive(const Scene& scene, const Features& features, std::span
     //If it is a leaf, we call the buildLeafData method and the leaf's primitives to m_primitives
     if (isLeafNode) {
         BVH::Node leaf = buildLeafData(scene, features, aabb, primitives);
-        for (BVH::Primitive p : primitives)
-            m_primitives.push_back(p);
         return;
     }
 
@@ -584,20 +582,49 @@ void BVH::buildRecursive(const Scene& scene, const Features& features, std::span
     // Space Complexity: O(nlog(n))
 }
 
-
 // TODO: Standard feature, or part of it
 // Compute the nr. of levels in your hierarchy after construction; useful for `debugDrawLevel()`
 // You are free to modify this function's signature, as long as the constructor builds a BVH
 void BVH::buildNumLevels()
 {
-    
+    // #levels = 1 if n <= 2; ceil(log2(n))-1 else
+    // where n = #primitives
+    int n = m_primitives.size();
+    if (n <= 2) {
+        m_numLevels = 1;
+        return;
+    }
+    int ceil = std::_Ceiling_of_log_2(n);
+    m_numLevels = ceil - 1;
+    return;
+    // Time Complexity: O(1)
+    // Space Complexity: O(1)
 }
 
 // Compute the nr. of leaves in your hierarchy after construction; useful for `debugDrawLeaf()`
 // You are free to modify this function's signature, as long as the constructor builds a BVH
 void BVH::buildNumLeaves()
 {
-
+    // #leaves = 2^(floor(log2(n))-2) + n - 2^(floor(log2(n))) if 2^floor(log2(n)) <= n <= 2^floor(log2(n))+2^(floor(log2(n))-2);
+    // #leaves = 2^(floor(log2(n))-1) else
+    // where n = # primitives
+    int n = m_primitives.size();
+    if (n <= 4) {
+        m_numLeaves = 1;
+        return;
+    } else if (n <= 8) {
+        m_numLeaves = 2;
+        return;
+    }
+    int floor = std::_Floor_of_log_2(n);
+    if (n >= pow(2, floor) && n <= pow(2, floor) + pow(2, floor - 2)) {
+        m_numLeaves = pow(2, floor - 2) + n - pow(2, floor);
+        return;
+    }
+    m_numLeaves = pow(2, floor - 1);
+    return;
+    // Time Complexity: O(1)
+    // Space Complexity: O(1)
 }
 
 // Draw the bounding boxes of the nodes at the selected level. Use this function to visualize nodes
@@ -623,6 +650,6 @@ void BVH::debugDrawLeaf(int leafIndex)
 {
     // Example showing how to draw an AABB as a (white) wireframe box.
     // Hint: use drawTriangle (see `draw.h`) to draw the contained primitives
-    AxisAlignedBox aabb { .lower = glm::vec3(0.0f), .upper = glm::vec3(0.0f, 1.05f, 1.05f) };
-    drawAABB(aabb, DrawMode::Wireframe, glm::vec3(0.05f, 1.0f, 0.05f), 0.1f);
+    //AxisAlignedBox aabb { .lower = glm::vec3(0.0f), .upper = glm::vec3(0.0f, 1.05f, 1.05f) };
+    //drawAABB(aabb, DrawMode::Wireframe, glm::vec3(0.05f, 1.0f, 0.05f), 0.1f);
 }
