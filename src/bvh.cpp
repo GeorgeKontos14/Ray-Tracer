@@ -472,7 +472,7 @@ BVH::Node BVH::buildLeafData(const Scene& scene, const Features& features, const
     node.aabb = aabb;
     //By having 1 as the first bit, we clarify that the node is a leaf, as intended in the file 'bvh_interface.h'. The rest of the value is the id of the 
     //first primitive of the span
-    node.data[0] = 1 | m_primitives.size();
+    node.data[0] = node.LeafBit + m_primitives.size();
     //Since the node is a leaf, the second element of data should indicate the amount of primitives in the node, ie, the size of the primitives span
     node.data[1] = primitives.size();
     // Copy the current set of primitives to the back of the primitives vector
@@ -557,6 +557,7 @@ void BVH::buildRecursive(const Scene& scene, const Features& features, std::span
     //If it is a leaf, we call the buildLeafData method and the leaf's primitives to m_primitives
     if (isLeafNode) {
         BVH::Node leaf = buildLeafData(scene, features, aabb, primitives);
+        m_nodes[nodeIndex] = leaf;
         return;
     }
 
@@ -627,6 +628,25 @@ void BVH::buildNumLeaves()
     // Space Complexity: O(1)
 }
 
+// Helper method that finds the next level of nodes in our BVH
+// - currentLevelIndices; the indices of the nodes of the current level
+// - nodes; the vector containing all the nodes of the BVH
+// - return; a vector containing the indices of the nodes of the lower level in our BVH
+std::vector<int> nextLevelIndices(std::vector<int> currentLevelIndices, std::vector<BVHInterface::Node> nodes) {
+    std::vector<int> res;
+    BVHInterface::Node current;
+    for (int ind : currentLevelIndices) {
+        current = nodes[ind];
+        if (!current.isLeaf()) {
+            res.push_back(current.leftChild());
+            res.push_back(current.rightChild());
+        }
+    }
+    return res;
+    // Time Complexity: O(n), where n = #nodes on the current level
+    // Space Complexity: O(2n)
+}
+
 // Draw the bounding boxes of the nodes at the selected level. Use this function to visualize nodes
 // for debugging. You may wish to implement `buildNumLevels()` first. We suggest drawing the AABB
 // of all nodes on the selected level.
@@ -636,8 +656,22 @@ void BVH::debugDrawLevel(int level)
     // Example showing how to draw an AABB as a (white) wireframe box.
     // Hint: use draw functions (see `draw.h`) to draw the contained boxes with different
     // colors, transparencies, etc.
-    AxisAlignedBox aabb { .lower = glm::vec3(0.0f), .upper = glm::vec3(0.0f, 1.05f, 1.05f) };
-    drawAABB(aabb, DrawMode::Wireframe, glm::vec3(0.05f, 1.0f, 0.05f), 0.1f);
+    //AxisAlignedBox aabb { .lower = glm::vec3(0.0f), .upper = glm::vec3(0.0f, 1.05f, 1.05f) };
+    //drawAABB(aabb, DrawMode::Wireframe, glm::vec3(0.05f, 1.0f, 0.05f), 0.1f);
+    if (level == 0) {
+        BVHInterface::Node root = m_nodes[RootIndex];
+        drawAABB(root.aabb, DrawMode::Wireframe, glm::vec3(0, 1.0f, 0), 1.0f);
+        return;
+    }
+    std::vector<int> currentLevel;
+    currentLevel.push_back(RootIndex);
+    for (int i = 0; i < level; i++)
+        currentLevel = nextLevelIndices(currentLevel, m_nodes);
+    for (int ind : currentLevel)
+        drawAABB(m_nodes[ind].aabb, DrawMode::Wireframe, glm::vec3(0, 1.0f, 0), 1.0f);
+    return;
+    // Time Complexity: O(2^level)
+    // Space Complexity: O(2^level)
 }
 
 // Draw data of the leaf at the selected index. Use this function to visualize leaf nodes
@@ -652,4 +686,26 @@ void BVH::debugDrawLeaf(int leafIndex)
     // Hint: use drawTriangle (see `draw.h`) to draw the contained primitives
     //AxisAlignedBox aabb { .lower = glm::vec3(0.0f), .upper = glm::vec3(0.0f, 1.05f, 1.05f) };
     //drawAABB(aabb, DrawMode::Wireframe, glm::vec3(0.05f, 1.0f, 0.05f), 0.1f);
+    if (leafIndex == 0)
+        return;
+    
+    BVHInterface::Node current;
+    int leafCount = 0;
+    for (BVHInterface::Node n: m_nodes) {
+        if (n.isLeaf())
+            leafCount++;
+        if (leafCount == leafIndex) {
+            current = n;
+            break;
+        }
+    }
+    drawAABB(current.aabb, DrawMode::Wireframe, glm::vec3(1.0f, 0, 0), 1.0f);
+    int count = current.primitiveCount();
+    BVHInterface::Primitive p;
+    for (int i = current.primitiveOffset(); i < current.primitiveOffset() + count; i++) {
+        p = m_primitives[i];
+        drawTriangle(p.v0, p.v1, p.v2);
+    }
+    // Time Complexity: O(n), where n = #nodes
+    // Space Complexity: O(1)
 }
