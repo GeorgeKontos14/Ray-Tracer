@@ -358,7 +358,7 @@ int comparePrimitives(uint32_t axis, PrimitiveData p1, PrimitiveData p2)
 // - primitives; the modifiable range of triangles that requires sorting/splitting along an axis
 // - return;     the split position of the modified range of triangles
 // This method is unit-tested, so do not change the function signature.
-size_t splitPrimitivesByMedian(const AxisAlignedBox& aabb, uint32_t axis, std::span<BVHInterface::Primitive>& primitives)
+size_t splitPrimitivesByMedian(const AxisAlignedBox& aabb, uint32_t axis, std::span<BVHInterface::Primitive> primitives)
 {
     using Primitive = BVHInterface::Primitive;
     //At first, we create a vector of PrimitiveData objects for all the primitives;
@@ -391,31 +391,71 @@ size_t splitPrimitivesByMedian(const AxisAlignedBox& aabb, uint32_t axis, std::s
     // Space Complexity: O(n)
 }
 
-bool intersectRayWithNode(const BVHInterface& bvh, Ray& ray, int nodeInd, int& primInd, HitInfo hitInfo) {
-    BVHInterface::Node node = bvh.nodes()[nodeInd];
-    if (!intersectRayWithShape(node.aabb, ray))
+bool interBVH(const AxisAlignedBox& box, Ray& ray) {
+    float xmin = (box.lower.x - ray.origin.x) / ray.direction.x;
+    float ymin = (box.lower.y - ray.origin.y) / ray.direction.y;
+    float zmin = (box.lower.z - ray.origin.z) / ray.direction.z;
+    float xmax = (box.upper.x - ray.origin.x) / ray.direction.x;
+    float ymax = (box.upper.y - ray.origin.y) / ray.direction.y;
+    float zmax = (box.upper.z - ray.origin.z) / ray.direction.z;
+
+    float inx;
+    float iny;
+    float inz;
+    float outx;
+    float outy;
+    float outz;
+
+    inx = glm::min(xmin, xmax);
+    iny = glm::min(ymin, ymax);
+    inz = glm::min(zmin, zmax);
+    outx = glm::max(xmax, xmin);
+    outy = glm::max(ymax, ymin);
+    outz = glm::max(zmax, zmin);
+
+    float in = glm::max(inx, glm::max(iny, inz));
+    float out = glm::min(outx, glm::min(outy, outz));
+
+    if (in > out || out < 0)
         return false;
+
+    if (in < ray.t) {
+        return true;
+    }
+    return false;
+}
+
+bool intersectRayWithNode(RenderState& state, BVHInterface::Node node, Ray& ray, int& primInd, HitInfo hitInfo, std::span<const BVHInterface::Node> nodes, std::span<const BVHInterface::Primitive> primitives)
+{
+    //int old = ray.t;
+    bool in = interBVH(node.aabb, ray);
+    if (!in)
+        return false;
+    //ray.t = old;
+   
     if (node.isLeaf()) {
+        //ray.t = old;
         bool intersectPrim;
         BVHInterface::Primitive p;
         bool res = false;
         int old_t = ray.t;
         for (int i = node.primitiveOffset(); i < node.primitiveOffset() + node.primitiveCount(); i++) {
-            p = bvh.primitives()[i];
-            intersectPrim = intersectRayWithTriangle(p.v0.normal, p.v1.normal, p.v2.position, ray, hitInfo);
+            p = primitives[i];
+            intersectPrim = intersectRayWithTriangle(p.v0.position, p.v1.position, p.v2.position, ray, hitInfo);
             if (intersectPrim) {
                 res = true;
                 if (ray.t < old_t) {
                     old_t = ray.t;
+                    //updateHitInfo(state, primitives[i], ray, hitInfo);
                     primInd = i;
                 }
             }
         }
 
-        return false;
+        return res;
     }
-    bool leftChild = intersectRayWithNode(bvh, ray, node.leftChild(), primInd, hitInfo);
-    bool rightChild = intersectRayWithNode(bvh, ray, node.rightChild(), primInd, hitInfo);
+    bool leftChild = intersectRayWithNode(state, nodes[node.leftChild()], ray, primInd, hitInfo, nodes, primitives);
+    bool rightChild = intersectRayWithNode(state, nodes[node.rightChild()], ray, primInd, hitInfo, nodes, primitives);
     return leftChild || rightChild;
 }
 
@@ -465,7 +505,7 @@ bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, 
         // Note that it is entirely possible for a ray to hit a leaf node, but not its primitives,
         // and it is likewise possible for a ray to hit both children of a node.
         int primInd = 0;
-        is_hit = intersectRayWithNode(bvh, ray, 0, primInd, hitInfo);
+        is_hit = intersectRayWithNode(state, nodes[0], ray, primInd, hitInfo, nodes, primitives);
         if (is_hit)
             updateHitInfo(state, bvh.primitives()[primInd], ray, hitInfo);
         return is_hit;
