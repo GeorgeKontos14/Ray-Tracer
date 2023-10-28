@@ -10,7 +10,8 @@ DISABLE_WARNINGS_POP()
 #include <limits>
 
 
-bool pointInTriangle(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& n, const glm::vec3& p) {
+bool pointInTriangle(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& n, const glm::vec3& p)
+{
     // TODO: implement this function.
     return false;
 }
@@ -48,6 +49,5 @@ bool intersectRayWithShape(const Sphere& sphere, Ray& ray, HitInfo& hitInfo)
 /// Output: if intersects then modify the hit parameter ray.t and return true, otherwise return false
 bool intersectRayWithShape(const AxisAlignedBox& box, Ray& ray)
 {
-    // TODO: implement this function.
     return false;
 }
