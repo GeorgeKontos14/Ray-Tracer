@@ -118,7 +118,7 @@ public: // Visual debug
     void debugDrawLeaf(int leafIndex);
 
     void debugDrawSplit(float splitLine, int nodeIdx, uint32_t axis);
-    void debugDrawOptimalSplit(int nodeIdx);
+    void debugDrawOptimalSplit();
 
 public: // Public getters
     // Accessors to underlying data

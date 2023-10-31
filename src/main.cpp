@@ -75,7 +75,6 @@ int main(int argc, char** argv)
         int bvhDebugLevel = 0;
         int bvhDebugLeaf = 0;
         int bvhDebugNode = 0;
-        int optimalNode = 0;
         float maxOffset = 0;
         float offset = 0;
         int axis = 0;
@@ -269,8 +268,6 @@ int main(int argc, char** argv)
                         ImGui::SliderInt("Split Axis", &axis, 0, 2);
                     }
                     ImGui::Checkbox("Draw Optimal SAH Split", &debugOptimalSAH);
-                    if (debugOptimalSAH)
-                        ImGui::SliderInt("BVH Node", &optimalNode, 0, bvh.nodes().size() - 1);
                 }
 
             }
@@ -428,7 +425,7 @@ int main(int argc, char** argv)
                     if (debugSAHNode)
                         bvh.debugDrawSplit(offset, bvhDebugNode, axis);
                     if (debugOptimalSAH)
-                        bvh.debugDrawOptimalSplit(optimalNode);
+                        bvh.debugDrawOptimalSplit();
                     enableDebugDraw = false;
                     glPopAttrib();
                 }

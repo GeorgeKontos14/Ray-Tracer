@@ -805,34 +805,31 @@ void BVH::debugDrawSplit(float splitLine, int nodeIdx, uint32_t axis) {
     
 }
 
-void BVH::debugDrawOptimalSplit(int nodeIdx) {
+void BVH::debugDrawOptimalSplit() {
     using Primitive = BVH::Primitive;
-    BVHInterface::Node n = m_nodes[nodeIdx];
-    drawAABB(n.aabb, DrawMode::Wireframe, glm::vec3(0, 0, 1.0f), 1.0f);
-    std::vector<Primitive> primitives;
-    for (int i = 0; i < n.primitiveOffset() + n.primitiveCount(); i++) {
-        primitives.push_back(m_primitives[i]);
-    }
-    //std::span<Primitive> prims(primitives);
-    uint32_t axis = computeAABBLongestAxis(n.aabb);
-    int numBins = primitives.size();
+
+    std::span<Primitive> prims(m_primitives);
+    AxisAlignedBox box = computeSpanAABB(prims);
+    drawAABB(box, DrawMode::Wireframe, glm::vec3(0, 0, 1.0f), 1.0f);
+    uint32_t axis = computeAABBLongestAxis(box);
+    int numBins = 4;
     std::vector<float> centroidCoord;
     float step = 0;
     float lowerCoord = 0;
     if (axis == 0) {
-        lowerCoord = n.aabb.lower.x;
-        step = (n.aabb.upper.x - n.aabb.lower.x) / numBins;
-        for (Primitive p : primitives)
+        lowerCoord = box.lower.x;
+        step = (box.upper.x - box.lower.x) / numBins;
+        for (Primitive p : m_primitives)
             centroidCoord.push_back(computePrimitiveCentroid(p).x);
     } else if (axis == 1) {
-        lowerCoord = n.aabb.lower.y;
-        step = (n.aabb.upper.y - n.aabb.lower.y) / numBins;
-        for (Primitive p : primitives)
+        lowerCoord = box.lower.y;
+        step = (box.upper.y - box.lower.y) / numBins;
+        for (Primitive p : m_primitives)
             centroidCoord.push_back(computePrimitiveCentroid(p).y);
     } else {
-        lowerCoord = n.aabb.lower.z;
-        step = (n.aabb.upper.z - n.aabb.lower.z) / numBins;
-        for (Primitive p : primitives)
+        lowerCoord = box.lower.z;
+        step = (box.upper.z - box.lower.z) / numBins;
+        for (Primitive p : m_primitives)
             centroidCoord.push_back(computePrimitiveCentroid(p).z);
     }
     int nA;
@@ -850,7 +847,7 @@ void BVH::debugDrawOptimalSplit(int nodeIdx) {
             else
                 nB++;
         }
-        currentCost = costOfSplit(n.aabb, i * step, axis, nA, nB);
+        currentCost = costOfSplit(box, i * step, axis, nA, nB);
         if (currentCost < minCost) {
             minCost = currentCost;
             minSplitLine = i * step;
@@ -858,10 +855,10 @@ void BVH::debugDrawOptimalSplit(int nodeIdx) {
         }
     }
     AxisAlignedBox aabb {
-        n.aabb.lower,
-        n.aabb.upper
+        box.lower,
+        box.upper
     };
-    if (minNA >= primitives.size()) {
+    if (minNA >= m_primitives.size()) {
         if (axis == 0)
             aabb.upper.x = aabb.lower.x;
         else if (axis == 1)
