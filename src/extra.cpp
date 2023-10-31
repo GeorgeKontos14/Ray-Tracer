@@ -138,7 +138,7 @@ size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::s
             minNA = nA;
         }
     }
-    if (minNA >= primitives.size())
+    if (minNA >= primitives.size() || minNA == 0)
         return -1;
     Primitive temp;
     float tempC;
@@ -190,3 +190,7 @@ float costOfSplit(const AxisAlignedBox& aabb, float split, uint32_t axis, int nA
 
     return pA*nA+pB*nB;
 }
+
+//void debugDrawSplit(const AxisAlignedBox& aabb, uint32_t axis, std::span<BVH::Primitive> primitives, int splitInd) {
+
+//}

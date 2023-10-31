@@ -11,7 +11,7 @@
 #include <chrono>
 #include <framework/opengl_includes.h>
 #include <iostream>
-
+#include <stack>
 
 // Helper method to fill in hitInfo object. This can be safely ignored (or extended).
 // Note: many of the functions in this helper tie in to standard/extra features you will have
@@ -425,39 +425,6 @@ bool interBVH(const AxisAlignedBox& box, Ray& ray) {
     return false;
 }
 
-bool intersectRayWithNode(RenderState& state, BVHInterface::Node node, Ray& ray, int& primInd, HitInfo hitInfo, std::span<const BVHInterface::Node> nodes, std::span<const BVHInterface::Primitive> primitives)
-{
-    //int old = ray.t;
-    bool in = interBVH(node.aabb, ray);
-    if (!in)
-        return false;
-    //ray.t = old;
-   
-    if (node.isLeaf()) {
-        //ray.t = old;
-        bool intersectPrim;
-        BVHInterface::Primitive p;
-        bool res = false;
-        int old_t = ray.t;
-        for (int i = node.primitiveOffset(); i < node.primitiveOffset() + node.primitiveCount(); i++) {
-            p = primitives[i];
-            intersectPrim = intersectRayWithTriangle(p.v0.position, p.v1.position, p.v2.position, ray, hitInfo);
-            if (intersectPrim) {
-                res = true;
-                if (ray.t < old_t) {
-                    old_t = ray.t;
-                    //updateHitInfo(state, primitives[i], ray, hitInfo);
-                    primInd = i;
-                }
-            }
-        }
-
-        return res;
-    }
-    bool leftChild = intersectRayWithNode(state, nodes[node.leftChild()], ray, primInd, hitInfo, nodes, primitives);
-    bool rightChild = intersectRayWithNode(state, nodes[node.rightChild()], ray, primInd, hitInfo, nodes, primitives);
-    return leftChild || rightChild;
-}
 
 // TODO: Standard feature
 // Hierarchy traversal routine; called by the BVH's intersect(),
@@ -487,7 +454,7 @@ bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, 
     // Return value
     bool is_hit = false;
 
-    if (state.features.enableAccelStructure) {
+    if (state.features.enableAccelStructure || state.features.extra.enableBvhSahBinning) {
         // TODO: implement here your (probably stack-based) BVH traversal.
         //
         // Some hints (refer to bvh_interface.h either way). BVH nodes are packed, so the
@@ -504,10 +471,32 @@ bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, 
         //
         // Note that it is entirely possible for a ray to hit a leaf node, but not its primitives,
         // and it is likewise possible for a ray to hit both children of a node.
+          
+        BVHInterface::Primitive prim;
+        std::stack<int> inds;
+        inds.push(0);
+        BVHInterface::Node n;
         int primInd = 0;
-        is_hit = intersectRayWithNode(state, nodes[0], ray, primInd, hitInfo, nodes, primitives);
-        if (is_hit)
-            updateHitInfo(state, bvh.primitives()[primInd], ray, hitInfo);
+        while (!inds.empty()) {
+            n = nodes[inds.top()];
+            inds.pop();
+            if (interBVH(n.aabb, ray)) {
+                if (n.isLeaf()) {
+                    //is_hit |= intersectLeaf(state, n, ray, primInd, hitInfo, primitives);
+                    for (int i = n.primitiveOffset(); i < n.primitiveOffset() + n.primitiveCount(); i++) {
+                        prim = primitives[i];
+                        const auto& [v0, v1, v2] = std::tie(prim.v0, prim.v1, prim.v2);
+                        if (intersectRayWithTriangle(v0.position, v1.position, v2.position, ray, hitInfo)) {
+                            updateHitInfo(state, primitives[i], ray, hitInfo);
+                            is_hit = true;
+                        }
+                    }
+                } else {
+                    inds.push(n.leftChild());
+                    inds.push(n.rightChild());
+                }
+            }
+        }
         return is_hit;
     } else {
         // Naive implementation; simply iterates over all primitives
@@ -637,36 +626,23 @@ void BVH::buildRecursive(const Scene& scene, const Features& features, std::span
     //If it is an inner node, we split the span of primitives
     //If the extra feature is disabled, we split by calculating the median
     uint32_t longest = computeAABBLongestAxis(aabb);
-    size_t splitInd = 0;
-    if (features.extra.enableBvhSahBinning) {
-        /* splitInd = splitPrimitivesBySAHBin(aabb, longest, primitives);
-        if (splitInd < 0 || splitInd > primitives.size())
-            return;
-        std::span<BVH::Primitive> leftPrimitives = primitives.subspan(0, splitInd);
-        std::span<BVH::Primitive> rightPrimitives = primitives.subspan(splitInd, primitives.size() - splitInd);
-        // We calculate the indices of the left and right children in the m_nodes vector
-        uint32_t leftInd = nextNodeIdx();
-        uint32_t rightInd = nextNodeIdx();
-        // We store the data of the current node in the m_nodes vector
-        m_nodes.push_back(buildNodeData(scene, features, aabb, leftInd, rightInd));
-        // Recursively build child nodes until we reach leaves
-        buildRecursive(scene, features, leftPrimitives, leftInd);
-        buildRecursive(scene, features, rightPrimitives, rightInd);*/
-    }
-    else {
+    int splitInd = 0;
+    if (features.extra.enableBvhSahBinning) 
+        splitInd = splitPrimitivesBySAHBin(aabb, longest, primitives);
+    else 
         splitInd = splitPrimitivesByMedian(aabb, longest, primitives);
-        // Using the above split index, we split the primitives into the spans of the left and right child nodes
-        std::span<BVH::Primitive> leftPrimitives = primitives.subspan(0, splitInd);
-        std::span<BVH::Primitive> rightPrimitives = primitives.subspan(splitInd, primitives.size() - splitInd);
-        // We calculate the indices of the left and right children in the m_nodes vector
-        uint32_t leftInd = nextNodeIdx();
-        uint32_t rightInd = nextNodeIdx();
-        // We store the data of the current node in the m_nodes vector
-        m_nodes[nodeIndex] = buildNodeData(scene, features, aabb, leftInd, rightInd);
-        // Recursively build child nodes until we reach leaves
-        buildRecursive(scene, features, leftPrimitives, leftInd);
-        buildRecursive(scene, features, rightPrimitives, rightInd);
+    if (splitInd < 0 || splitInd > primitives.size()) {
+        BVH::Node leaf = buildLeafData(scene, features, aabb, primitives);
+        m_nodes[nodeIndex] = leaf;
+        return;
     }
+    uint32_t leftInd = nextNodeIdx();
+    uint32_t rightInd = nextNodeIdx();
+    // We store the data of the current node in the m_nodes vector
+    m_nodes[nodeIndex] = buildNodeData(scene, features, aabb, leftInd, rightInd);
+    // Recursively build child nodes until we reach leaves
+    buildRecursive(scene, features, primitives.subspan(0, splitInd), leftInd);
+    buildRecursive(scene, features, primitives.subspan(splitInd, primitives.size() - splitInd), rightInd);
     // Time Complexity: O(n(log(n))^2), where n = primitives.size()
     // Space Complexity: O(nlog(n))
 }
