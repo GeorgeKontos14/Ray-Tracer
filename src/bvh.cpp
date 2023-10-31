@@ -768,8 +768,124 @@ void BVH::debugDrawLeaf(int leafIndex)
     BVHInterface::Primitive p;
     for (int i = current.primitiveOffset(); i < current.primitiveOffset() + count; i++) {
         p = m_primitives[i];
-        drawTriangle(p.v0, p.v1, p.v2);
+        drawTriangle(p.v0, p.v1, p.v2, glm::vec3{0, 0, 1.0f});
     }
     // Time Complexity: O(n), where n = #nodes
     // Space Complexity: O(1)
+}
+
+void BVH::debugDrawSplit(float splitLine, int nodeIdx, uint32_t axis) {
+    BVHInterface::Node n = m_nodes[nodeIdx];
+    drawAABB(n.aabb, DrawMode::Wireframe, glm::vec3(0, 0, 1.0f), 1.0f);
+    float length;
+    float splitPos;
+    AxisAlignedBox splitPlane {
+        n.aabb.lower,
+        n.aabb.upper
+    };
+    if (axis == 0) {
+        length = n.aabb.upper.x - n.aabb.lower.x;
+        splitPos = n.aabb.lower.x + splitLine * length;
+        splitPlane.lower.x = splitPos;
+        splitPlane.upper.x = splitPos;
+        drawAABB(splitPlane, DrawMode::Filled, glm::vec3(0.8f, 0, 0.8f), 0.4f);
+    } else if (axis == 1) {
+        length = n.aabb.upper.y - n.aabb.lower.y;
+        splitPos = n.aabb.lower.y + splitLine * length;
+        splitPlane.lower.y = splitPos;
+        splitPlane.upper.y = splitPos;
+        drawAABB(splitPlane, DrawMode::Filled, glm::vec3(0.8f, 0, 0.8f), 0.4f);
+    } else {
+        length = n.aabb.upper.z - n.aabb.lower.z;
+        splitPos = n.aabb.lower.z + splitLine * length;
+        splitPlane.lower.z = splitPos;
+        splitPlane.upper.z = splitPos;
+        drawAABB(splitPlane, DrawMode::Filled, glm::vec3(0.8f, 0, 0.8f), 0.4f);
+    }
+    
+}
+
+void BVH::debugDrawOptimalSplit(int nodeIdx) {
+    using Primitive = BVH::Primitive;
+    BVHInterface::Node n = m_nodes[nodeIdx];
+    drawAABB(n.aabb, DrawMode::Wireframe, glm::vec3(0, 0, 1.0f), 1.0f);
+    std::vector<Primitive> primitives;
+    for (int i = 0; i < n.primitiveOffset() + n.primitiveCount(); i++) {
+        primitives.push_back(m_primitives[i]);
+    }
+    //std::span<Primitive> prims(primitives);
+    uint32_t axis = computeAABBLongestAxis(n.aabb);
+    int numBins = primitives.size();
+    std::vector<float> centroidCoord;
+    float step = 0;
+    float lowerCoord = 0;
+    if (axis == 0) {
+        lowerCoord = n.aabb.lower.x;
+        step = (n.aabb.upper.x - n.aabb.lower.x) / numBins;
+        for (Primitive p : primitives)
+            centroidCoord.push_back(computePrimitiveCentroid(p).x);
+    } else if (axis == 1) {
+        lowerCoord = n.aabb.lower.y;
+        step = (n.aabb.upper.y - n.aabb.lower.y) / numBins;
+        for (Primitive p : primitives)
+            centroidCoord.push_back(computePrimitiveCentroid(p).y);
+    } else {
+        lowerCoord = n.aabb.lower.z;
+        step = (n.aabb.upper.z - n.aabb.lower.z) / numBins;
+        for (Primitive p : primitives)
+            centroidCoord.push_back(computePrimitiveCentroid(p).z);
+    }
+    int nA;
+    int nB;
+    float currentCost;
+    float minCost = std::numeric_limits<float>::max();
+    float minSplitLine;
+    int minNA = 0;
+    for (int i = 1; i < numBins; i++) {
+        nA = 0;
+        nB = 0;
+        for (float c : centroidCoord) {
+            if (c <= lowerCoord + i * step)
+                nA++;
+            else
+                nB++;
+        }
+        currentCost = costOfSplit(n.aabb, i * step, axis, nA, nB);
+        if (currentCost < minCost) {
+            minCost = currentCost;
+            minSplitLine = i * step;
+            minNA = nA;
+        }
+    }
+    AxisAlignedBox aabb {
+        n.aabb.lower,
+        n.aabb.upper
+    };
+    if (minNA >= primitives.size()) {
+        if (axis == 0)
+            aabb.upper.x = aabb.lower.x;
+        else if (axis == 1)
+            aabb.upper.y = aabb.lower.y;
+        else
+            aabb.upper.z = aabb.lower.z;
+    } else if (minNA == 0) {
+        if (axis == 0)
+            aabb.lower.x = aabb.upper.x;
+        else if (axis == 1)
+            aabb.lower.y = aabb.upper.y;
+        else
+            aabb.lower.z = aabb.upper.z;
+    } else {
+        if (axis == 0) {
+            aabb.lower.x = lowerCoord + minSplitLine;
+            aabb.upper.x = lowerCoord + minSplitLine;
+        } else if (axis == 0) {
+            aabb.lower.y = lowerCoord + minSplitLine;
+            aabb.upper.y = lowerCoord + minSplitLine;
+        } else {
+            aabb.lower.z = lowerCoord + minSplitLine;
+            aabb.upper.z = lowerCoord + minSplitLine;
+        }
+    }
+    drawAABB(aabb, DrawMode::Filled, glm::vec3 { 1.0f, 1.0f, 0 }, 0.4f);
 }

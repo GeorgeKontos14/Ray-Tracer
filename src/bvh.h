@@ -117,6 +117,9 @@ public: // Visual debug
     // You are free to modify this function's signature.
     void debugDrawLeaf(int leafIndex);
 
+    void debugDrawSplit(float splitLine, int nodeIdx, uint32_t axis);
+    void debugDrawOptimalSplit(int nodeIdx);
+
 public: // Public getters
     // Accessors to underlying data
     std::span<const Node> nodes() const override { return m_nodes; }

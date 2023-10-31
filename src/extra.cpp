@@ -190,7 +190,3 @@ float costOfSplit(const AxisAlignedBox& aabb, float split, uint32_t axis, int nA
 
     return pA*nA+pB*nB;
 }
-
-//void debugDrawSplit(const AxisAlignedBox& aabb, uint32_t axis, std::span<BVH::Primitive> primitives, int splitInd) {
-
-//}

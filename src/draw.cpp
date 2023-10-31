@@ -45,8 +45,9 @@ void drawExampleOfCustomVisualDebug()
 }
 
 
-void drawTriangle (const Vertex& v0, const Vertex& v1, const Vertex& v2 ) {
+void drawTriangle (const Vertex& v0, const Vertex& v1, const Vertex& v2, glm::vec3 color) {
     glBegin(GL_TRIANGLES);
+    glColor3f(color.x, color.y, color.z);
         glNormal3fv(glm::value_ptr(v0.normal));
         glVertex3fv(glm::value_ptr(v0.position));
         glNormal3fv(glm::value_ptr(v1.normal));
