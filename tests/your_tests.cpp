@@ -4,6 +4,7 @@
 #include "sampler.h"
 #include "scene.h"
 #include "shading.h"
+#include "extra.h"
 #include <limits>
 
 // Suppress warnings in third-party code.
@@ -70,7 +71,7 @@ TEST_CASE("BVHTesting")
         glm::vec3 { 1, 0, 0 },
         glm::vec3 { 0, 0, 0 }
     };
-    Vertex v7= {
+    Vertex v7 = {
         glm::vec3 { 4, -5, 3 },
         glm::vec3 { 1, 0, 0 },
         glm::vec3 { 0, 0, 0 }
@@ -187,19 +188,19 @@ TEST_CASE("BVHTesting")
         AxisAlignedBox aabb0123 = computeSpanAABB(arr0123);
         BVHInterface::Primitive arr234567[] = { p2, p3, p4, p5, p6, p7 };
         AxisAlignedBox aabb234567 = computeSpanAABB(arr234567);
-        CHECK((aabb012.lower == glm::vec3{ 0, 0, 0 } && aabb012.upper == glm::vec3{3,2,2}));
+        CHECK((aabb012.lower == glm::vec3 { 0, 0, 0 } && aabb012.upper == glm::vec3 { 3, 2, 2 }));
         CHECK((aabb456.lower == glm::vec3 { -2, 0, 0 } && aabb456.upper == glm::vec3 { 3, 4, 7 }));
         CHECK((aabb12.lower == glm::vec3 { 0, 0, 0 } && aabb12.upper == glm::vec3 { 3, 2, 2 }));
         CHECK((aabb0123.lower == glm::vec3 { 0, 0, 0 } && aabb0123.upper == glm::vec3 { 3, 2, 2 }));
         CHECK((aabb234567.lower == glm::vec3 { -4, -5, -8 } && aabb234567.upper == glm::vec3 { 4, 4, 7 }));
     }
-   
-    SECTION("Primitive Centroid") 
+
+    SECTION("Primitive Centroid")
     {
-        CHECK(computePrimitiveCentroid(p0) == glm::vec3 { (float)1 / 3, (float) 1 / 3, 0 });
-        CHECK(computePrimitiveCentroid(p2) == glm::vec3 { (float)4 / 3, 1, (float) 2 / 3 });
-        CHECK(computePrimitiveCentroid(p5) == glm::vec3 { (float)4 / 3, (float)7 / 3, (float) 10 / 3 });
-        CHECK(computePrimitiveCentroid(p7) == glm::vec3 { 0, (float)-4 / 3, (float) 1 / 3 });
+        CHECK(computePrimitiveCentroid(p0) == glm::vec3 { (float)1 / 3, (float)1 / 3, 0 });
+        CHECK(computePrimitiveCentroid(p2) == glm::vec3 { (float)4 / 3, 1, (float)2 / 3 });
+        CHECK(computePrimitiveCentroid(p5) == glm::vec3 { (float)4 / 3, (float)7 / 3, (float)10 / 3 });
+        CHECK(computePrimitiveCentroid(p7) == glm::vec3 { 0, (float)-4 / 3, (float)1 / 3 });
     }
 
     SECTION("AABB Longest Axis")
@@ -213,8 +214,8 @@ TEST_CASE("BVHTesting")
             .upper = { 3, 4, 9 }
         };
         AxisAlignedBox aabb2 = {
-            .lower = {1,2,3},
-            .upper = {3, 9, 6}
+            .lower = { 1, 2, 3 },
+            .upper = { 3, 9, 6 }
         };
         AxisAlignedBox aabb3 = {
             .lower = { 1, 1, 1 },
@@ -241,7 +242,8 @@ TEST_CASE("BVHTesting")
         CHECK(computeAABBLongestAxis(aabb6) == 1);
     }
 
-    SECTION("Compare Primitives") {
+    SECTION("Compare Primitives")
+    {
         CHECK(comparePrimitives(0, d0, d0) == 0);
         CHECK(comparePrimitives(0, d2, d3) == 0);
         CHECK(comparePrimitives(1, d1, d3) == 0);
@@ -254,7 +256,7 @@ TEST_CASE("BVHTesting")
         CHECK(comparePrimitives(2, d2, d5) == -1);
     }
 
-    SECTION("Merge Vectors") 
+    SECTION("Merge Vectors")
     {
         std::vector<PrimitiveData> vec0x = { d6, d0, d4 };
         std::vector<PrimitiveData> vec1x = { d7, d1, d2 };
@@ -305,6 +307,14 @@ TEST_CASE("BVHTesting")
         int splitInd1 = splitPrimitivesByMedian(aabb1, 0, primitives1);
         CHECK(equalSpans(primitives1, sortedX1));
         CHECK(splitInd1 == 4);
+    }
+
+    SECTION("Split Primitives SAH")
+    {
+        std::vector<BVHInterface::Primitive> primitivesVec = { p0, p1, p2, p3, p4, p5, p6, p7 };
+        std::span<BVHInterface::Primitive> primitives(primitivesVec);
+        uint32_t ind = splitPrimitivesBySAHBin(computeSpanAABB(primitives), 0, primitives);
+        CHECK(ind != 2);
     }
 }
 

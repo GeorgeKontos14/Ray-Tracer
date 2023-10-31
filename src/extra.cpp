@@ -96,6 +96,97 @@ glm::vec3 sampleEnvironmentMap(RenderState& state, Ray ray)
 size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::span<BVH::Primitive> primitives)
 {
     using Primitive = BVH::Primitive;
+    int numBins = primitives.size();
+    std::vector<float> centroidCoord;
+    float step = 0;
+    float lowerCoord = 0;
+    if (axis == 0) {
+        lowerCoord = aabb.lower.x;
+        step = (aabb.upper.x - aabb.lower.x) / numBins;
+        for (Primitive p : primitives)
+            centroidCoord.push_back(computePrimitiveCentroid(p).x);
+    } else if (axis == 1) {
+        lowerCoord = aabb.lower.y;
+        step = (aabb.upper.y - aabb.lower.y) / numBins;
+        for (Primitive p : primitives)
+            centroidCoord.push_back(computePrimitiveCentroid(p).y);
+    } else {
+        lowerCoord = aabb.lower.z;
+        step = (aabb.upper.z - aabb.lower.z) / numBins;
+        for (Primitive p : primitives)
+            centroidCoord.push_back(computePrimitiveCentroid(p).z);
+    }
+    int nA;
+    int nB;
+    float currentCost;
+    float minCost = std::numeric_limits<float>::max();
+    float minSplitLine;
+    int minNA;
+    for (int i = 1; i < numBins; i++) {
+        nA = 0;
+        nB = 0;
+        for (float c : centroidCoord) {
+            if (c <= lowerCoord + i * step)
+                nA++;
+            else
+                nB++;
+        }
+        currentCost = costOfSplit(aabb, i * step, axis, nA, nB);
+        if (currentCost < minCost) {
+            minCost = currentCost;
+            minSplitLine = i * step;
+            minNA = nA;
+        }
+    }
+    if (minNA >= primitives.size())
+        return -1;
+    Primitive temp;
+    float tempC;
+    int i = 0;
+    int j = primitives.size() - 1;
+    while(i < primitives.size()) {
+        if (i == minNA)
+            break;
+        if (centroidCoord[i] > lowerCoord + minSplitLine) {
+            temp = primitives[i];
+            primitives[i] = primitives[j];
+            primitives[j] = temp;
+            tempC = centroidCoord[i];
+            centroidCoord[i] = centroidCoord[j];
+            centroidCoord[j] = tempC;
+            j--;
+        } else {
+            i++;
+        }
+    }
+    return minNA;
+}
 
-    return 0; // This is clearly not the solution
+
+// Helper method that calculates the cost of a given split
+// - aabb; the AABB around all the primitives
+// - split; offset from the lower value on the given axis for split line
+// - axis; 0, 1, 2 for x, y, z respectively
+// - nA; number of primitives in first partition
+// - nB; number of primitives in second partition
+// - return; the cost of the given split
+// The cost of traversing the BVH is constant for all splits and thus is excluded from the calculations
+float costOfSplit(const AxisAlignedBox& aabb, float split, uint32_t axis, int nA, int nB) {
+    float S = 2*((aabb.upper.x-aabb.lower.x)*(aabb.upper.y-aabb.lower.y) + (aabb.upper.y - aabb.lower.y)*(aabb.upper.z-aabb.lower.z) +(aabb.upper.z-aabb.lower.z)* (aabb.upper.x-aabb.lower.x));
+    float SA;
+    float SB;
+    if (axis == 0) { 
+        SA = 2 * (split * (aabb.upper.y - aabb.lower.y) + (aabb.upper.y - aabb.lower.y) * (aabb.upper.z - aabb.lower.z) + (aabb.upper.z - aabb.lower.z) * split);
+        SB = 2 * ((aabb.upper.x - aabb.lower.x - split) * (aabb.upper.y - aabb.lower.y) + (aabb.upper.y - aabb.lower.y) * (aabb.upper.z - aabb.lower.z) + (aabb.upper.z - aabb.lower.z) * (aabb.upper.x - aabb.lower.x - split));
+    } else if (axis == 1) {
+        SA = 2 * ((aabb.upper.x - aabb.lower.x) * split + split * (aabb.upper.z - aabb.lower.z) + (aabb.upper.z - aabb.lower.z) * (aabb.upper.x - aabb.lower.x));
+        SB = 2 * ((aabb.upper.x - aabb.lower.x) * (aabb.upper.y - aabb.lower.y - split) + (aabb.upper.y - aabb.lower.y - split) * (aabb.upper.z - aabb.lower.z) + (aabb.upper.z - aabb.lower.z) * (aabb.upper.x - aabb.lower.x));
+    } else {
+        SA = 2 * ((aabb.upper.x - aabb.lower.x) * (aabb.upper.y - aabb.lower.y) + (aabb.upper.y - aabb.lower.y) * split + split * (aabb.upper.x - aabb.lower.x));
+        SB = 2 * ((aabb.upper.x - aabb.lower.x) * (aabb.upper.y - aabb.lower.y) + (aabb.upper.y - aabb.lower.y) * (aabb.upper.z - aabb.lower.z - split) + (aabb.upper.z - aabb.lower.z - split) * (aabb.upper.x - aabb.lower.x));
+    }
+    float pA = SA / S;
+    float pB = SB / S;
+
+    return pA*nA+pB*nB;
 }

@@ -635,23 +635,38 @@ void BVH::buildRecursive(const Scene& scene, const Features& features, std::span
     }
 
     //If it is an inner node, we split the span of primitives
-    //Extra feature; to be implemented
-    if (features.extra.enableBvhSahBinning)
-        return;
     //If the extra feature is disabled, we split by calculating the median
     uint32_t longest = computeAABBLongestAxis(aabb);
-    size_t splitInd = splitPrimitivesByMedian(aabb, longest, primitives);
-    //Using the above split index, we split the primitives into the spans of the left and right child nodes
-    std::span<BVH::Primitive> leftPrimitives = primitives.subspan(0, splitInd);
-    std::span<BVH::Primitive> rightPrimitives = primitives.subspan(splitInd, primitives.size() - splitInd);
-    //We calculate the indices of the left and right children in the m_nodes vector
-    uint32_t leftInd = nextNodeIdx();
-    uint32_t rightInd = nextNodeIdx();
-    //We store the data of the current node in the m_nodes vector
-    m_nodes[nodeIndex] = buildNodeData(scene, features, aabb, leftInd, rightInd);
-    //Recursively build child nodes until we reach leaves
-    buildRecursive(scene, features, leftPrimitives, leftInd);
-    buildRecursive(scene, features, rightPrimitives, rightInd);
+    size_t splitInd = 0;
+    if (features.extra.enableBvhSahBinning) {
+        /* splitInd = splitPrimitivesBySAHBin(aabb, longest, primitives);
+        if (splitInd < 0 || splitInd > primitives.size())
+            return;
+        std::span<BVH::Primitive> leftPrimitives = primitives.subspan(0, splitInd);
+        std::span<BVH::Primitive> rightPrimitives = primitives.subspan(splitInd, primitives.size() - splitInd);
+        // We calculate the indices of the left and right children in the m_nodes vector
+        uint32_t leftInd = nextNodeIdx();
+        uint32_t rightInd = nextNodeIdx();
+        // We store the data of the current node in the m_nodes vector
+        m_nodes.push_back(buildNodeData(scene, features, aabb, leftInd, rightInd));
+        // Recursively build child nodes until we reach leaves
+        buildRecursive(scene, features, leftPrimitives, leftInd);
+        buildRecursive(scene, features, rightPrimitives, rightInd);*/
+    }
+    else {
+        splitInd = splitPrimitivesByMedian(aabb, longest, primitives);
+        // Using the above split index, we split the primitives into the spans of the left and right child nodes
+        std::span<BVH::Primitive> leftPrimitives = primitives.subspan(0, splitInd);
+        std::span<BVH::Primitive> rightPrimitives = primitives.subspan(splitInd, primitives.size() - splitInd);
+        // We calculate the indices of the left and right children in the m_nodes vector
+        uint32_t leftInd = nextNodeIdx();
+        uint32_t rightInd = nextNodeIdx();
+        // We store the data of the current node in the m_nodes vector
+        m_nodes[nodeIndex] = buildNodeData(scene, features, aabb, leftInd, rightInd);
+        // Recursively build child nodes until we reach leaves
+        buildRecursive(scene, features, leftPrimitives, leftInd);
+        buildRecursive(scene, features, rightPrimitives, rightInd);
+    }
     // Time Complexity: O(n(log(n))^2), where n = primitives.size()
     // Space Complexity: O(nlog(n))
 }
