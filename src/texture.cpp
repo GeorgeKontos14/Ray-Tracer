@@ -19,7 +19,21 @@ glm::vec3 sampleTextureNearest(const Image& image, const glm::vec2& texCoord)
     // The pixel are stored in a 1D array of row major order
     // you can convert from position (i,j) to an index using the method seen in the lecture
     // Note, the center of the first pixel is at image coordinates (0.5, 0.5)
-    return image.pixels[0];
+    int width = image.width;
+    int height = image.height;
+    float x = texCoord.x;
+    float y = texCoord.y;
+    float j = glm::floor((width * x));
+    float i = glm::floor((height * y));
+    int j1 = glm::floor(j);
+    int i1 = glm::floor(i);
+    //they have to be between bounds
+    j1 = glm::clamp(j1, 0, width - 1);
+    i1 = glm::clamp(i1, 0, height - 1);
+    //j*width+i
+    int index = j1 * width + i1;
+    
+    return image.pixels[index];
 }
 
 // TODO: Standard feature
@@ -39,5 +53,31 @@ glm::vec3 sampleTextureBilinear(const Image& image, const glm::vec2& texCoord)
     // The pixel are stored in a 1D array of row major order
     // you can convert from position (i,j) to an index using the method seen in the lecture
     // Note, the center of the first pixel is at image coordinates (0.5, 0.5)
-    return image.pixels[0];
+    int width = image.width;
+    int height = image.height;
+    float x = texCoord.x;
+    float y = texCoord.y;
+
+    float i = y * height + 0.5f;
+    float j = width * x + 0.5f;
+
+    //we need the fractional and integer parts for the formula
+    
+    int iint = glm::floor(i);
+    float ifractional = i - iint;
+    int jint = glm::floor(j);
+    float jfractional = j - jint;
+    float widt4 = (1 - jfractional) * (1 - ifractional);
+    float widt3 = (1 - jfractional) * ifractional;
+    float widt2 = jfractional * (1 - ifractional);
+    float widt1 = jfractional * ifractional;
+    glm::vec3 t4 = image.pixels[width * (jint-1)+iint-1];
+    glm::vec3 t3 = image.pixels[width * (jint - 1) + iint];
+    glm::vec3 t2 = image.pixels[width * jint + iint - 1];
+    glm::vec3 t1 = image.pixels[jint * width + iint];
+    glm::vec3 res = widt4*t4+widt3*t3+widt2*t2+widt1*t1;
+
+    //bilinear interpolation
+    return res;
+
 }
