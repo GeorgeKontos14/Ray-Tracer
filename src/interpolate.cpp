@@ -12,8 +12,18 @@
 // This method is unit-tested, so do not change the function signature.
 glm::vec3 computeBarycentricCoord(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& p)
 {
-    float alpha;
-    float beta;
+    glm::vec3 v1v0 = v1-v0;
+    glm::vec3 v2v0 = v2 - v0;
+    glm::vec3 pv0 = p - v0;
+    //dot products to help us calculate the barycentric coordinates
+    float dot0 = glm::dot(v1v0, v1v0);
+    float dot1 = glm::dot(v1v0, v2v0);
+    float dot2 = glm::dot(v1v0, pv0);
+    float dot3 = glm::dot(v2v0, v2v0);
+    float dot4 = glm::dot(v2v0, pv0);
+    float d = 1.0f / (dot0 * dot3 - dot1 * dot1);
+    float alpha = (dot2*dot3-dot1 * dot4)*d;
+    float beta = (dot0*dot4-dot1*dot2)*d;
     float gamma = 1.0f - alpha - beta;
     // TODO: implement this function.
     return glm::vec3(alpha, beta, gamma);
