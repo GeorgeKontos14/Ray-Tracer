@@ -25,7 +25,6 @@ glm::vec3 computeBarycentricCoord(const glm::vec3& v0, const glm::vec3& v1, cons
     float alpha = (dot2*dot3-dot1 * dot4)*d;
     float beta = (dot0*dot4-dot1*dot2)*d;
     float gamma = 1.0f - alpha - beta;
-    // TODO: implement this function.
     return glm::vec3(alpha, beta, gamma);
 }
 
