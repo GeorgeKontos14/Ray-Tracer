@@ -96,7 +96,7 @@ glm::vec3 sampleEnvironmentMap(RenderState& state, Ray ray)
 size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::span<BVH::Primitive> primitives)
 {
     using Primitive = BVH::Primitive;
-    int numBins = 4;
+    int numBins = 20;
     std::vector<float> centroidCoord;
     float step = 0;
     float lowerCoord = 0;

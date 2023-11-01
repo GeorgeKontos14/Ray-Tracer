@@ -812,7 +812,7 @@ void BVH::debugDrawOptimalSplit() {
     AxisAlignedBox box = computeSpanAABB(prims);
     drawAABB(box, DrawMode::Wireframe, glm::vec3(0, 0, 1.0f), 1.0f);
     uint32_t axis = computeAABBLongestAxis(box);
-    int numBins = 4;
+    int numBins = 20;
     std::vector<float> centroidCoord;
     float step = 0;
     float lowerCoord = 0;
