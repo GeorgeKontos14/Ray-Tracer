@@ -6,6 +6,7 @@
 #include "render.h"
 #include "scene.h"
 #include "shading.h"
+#include <iostream>
 // Suppress warnings in third-party code.
 #include <framework/disable_all_warnings.h>
 DISABLE_WARNINGS_PUSH()
@@ -115,23 +116,30 @@ glm::vec3 visibilityOfLightSampleTransparency(RenderState& state, const glm::vec
     glm::vec3 point = ray.origin + ray.direction * ray.t;
     glm::vec3 fromLight = point - lightPosition;
 
-
     Ray visibilityRay;
     visibilityRay.origin = lightPosition;
     visibilityRay.direction = glm::normalize(fromLight);
 
-    Ray fromPoint;
-    fromPoint.origin = point + 0.0002f * hitInfo.normal;
-    fromPoint.direction = glm::normalize(-fromLight);
-
     HitInfo visibilityHit;
-    HitInfo visibilityHitFromPoint;
     state.bvh.intersect(state, visibilityRay, visibilityHit);
-    state.bvh.intersect(state, fromPoint, visibilityHitFromPoint);
+    float lightDistance = glm::length(visibilityRay.t * visibilityRay.direction + visibilityRay.origin - point);
+ 
+     if (lightDistance < 0.00001f) {
+        //std::cout << "pyk";
+        return lightColor;
+    } else {
+        if (visibilityHit.material.transparency > 0.99999f) {
+            return glm::vec3(0, 0, 0);
+        }
+        glm::vec3 lightContribution = lightColor * visibilityHit.material.kd * (1.0f - visibilityHit.material.transparency);
+        glm::vec3 pointNew = (visibilityRay.t + 0.001f) * visibilityRay.direction + visibilityRay.origin;
+        //std::cout << visibilityHit.material.transparency << " " << pointNew.x << " " << pointNew.y << " " << pointNew.z << std::endl;
+        drawSphere(pointNew, 0.01f, glm::vec3(0, 1, 0));
 
-    glm::vec3 lightContribution = lightColor * hitInfo.material.kd * (1.0f - hitInfo.material.transparency);
-    drawRay(fromPoint, lightContribution);
-    return lightContribution;
+        //return visibilityOfLightSampleTransparency(state, pointNew, lightContribution, ray, hitInfo);
+        return lightContribution;
+    }
+    
 }
 
 // TODO: Standard feature
