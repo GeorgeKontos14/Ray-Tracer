@@ -318,7 +318,19 @@ TEST_CASE("BVHTesting")
     }
 }
 
-// The below tests are not "good" unit tests. They don't actually test correctness.
+TEST_CASE("BloomFilterTesting")
+{
+    SECTION("Factorial")
+    {
+        CHECK(factorial(0) == 1);
+        CHECK(factorial(1) == 1);
+        CHECK(factorial(-7777) == 1);
+        CHECK(factorial(2) == 2);
+        CHECK(factorial(5) == 120);
+    }
+     
+    SECTION()
+    // The below tests are not "good" unit tests. They don't actually test correctness.
 // They simply exist for demonstrative purposes. As they interact with the interfaces
 // (scene, bvh_interface, etc), they allow you to verify that you haven't broken
 // our grading interface. They should compile without changes. If they do

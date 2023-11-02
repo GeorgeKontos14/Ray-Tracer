@@ -40,12 +40,98 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
 // not go on a hunting expedition for your implementation, so please keep it here!
 void postprocessImageWithBloom(const Scene& scene, const Features& features, const Trackball& camera, Screen& image)
 {
-    if (!features.extra.enableBloomEffect) {
+    if (!features.extra.enableBloomEffect)
         return;
+    int n = 7;
+    std::vector<float> filter;
+    for (int i = 0; i < n; i++)
+        filter.push_back(combinations(n, i) / (pow(2, n) - 1));
+    Screen thres = Screen(image.resolution(), true);
+    glm::vec3 pixel;
+    for (int j = 0; j < image.pixels().size(); j++) {
+        pixel = image.pixels()[j];
+        if (pixel.x >= 0.9f || pixel.y >= 0.9f || pixel.z >= 0.9f)
+            thres.pixels()[j] = pixel;
     }
 
-    // ...
+    Screen filtered = Screen(image.resolution(), true);
+    for (int j = 0; j < thres.resolution().y; j++) {
+        for (int i = 0; i < thres.resolution().x; i++) {
+            pixel = thres.pixels()[thres.indexAt(i, j)];
+            if (pixel.x >= 0.9 || pixel.y >= 0.9 || pixel.z >= 0.9)
+                applyFilter(thres, filter, i, j, true, filtered);
+        }
+    }
+
+
+    for (int j = 0; j < thres.resolution().y; j++) {
+        for (int i = 0; i < thres.resolution().x; i++) {
+            pixel = thres.pixels()[thres.indexAt(i, j)];
+            if (pixel.x >= 0.9 || pixel.y >= 0.9 || pixel.z >= 0.9)
+                applyFilter(thres, filter, i, j, false, filtered);
+        }
+    }
+
+    for (int i = 0; i < image.pixels().size(); i++) {
+        image.pixels()[i] = image.pixels()[i] + filtered.pixels()[i];  
+    }
 }
+
+void applyFilter(Screen& image, std::vector<float> filter, int x, int y, bool horizontal, Screen& after) {
+    glm::vec3 res;
+    if (horizontal) {
+        if (x == 0)
+            res = image.pixels()[image.indexAt(x, y)] * filter[3] + image.pixels()[image.indexAt(x + 1, y)] * filter[4] + image.pixels()[image.indexAt(x + 2, y)] * filter[5] + image.pixels()[image.indexAt(x + 3, y)] * filter[6]; 
+        else if (x == 1)
+            res = image.pixels()[image.indexAt(x - 1, y)] * filter[2] + image.pixels()[image.indexAt(x, y)] * filter[3] + image.pixels()[image.indexAt(x + 1, y)] * filter[4] + image.pixels()[image.indexAt(x + 2, y)] * filter[5] + image.pixels()[image.indexAt(x + 3, y)] * filter[6];
+        else if (x == 2)
+            res = image.pixels()[image.indexAt(x - 2, y)] * filter[1] + image.pixels()[image.indexAt(x - 1, y)] * filter[2] + image.pixels()[image.indexAt(x, y)] * filter[3] + image.pixels()[image.indexAt(x + 1, y)] * filter[4] + image.pixels()[image.indexAt(x + 2, y)] * filter[5] + image.pixels()[image.indexAt(x + 3, y)] * filter[6];
+        else if (x == image.resolution().x-1)
+            res = image.pixels()[image.indexAt(x - 3, y)] * filter[0] + image.pixels()[image.indexAt(x - 2, y)] * filter[1] + image.pixels()[image.indexAt(x - 1, y)] * filter[2] + image.pixels()[image.indexAt(x, y)] * filter[3];
+        else if (x == image.resolution().x-2)
+            res = image.pixels()[image.indexAt(x - 3, y)] * filter[0] + image.pixels()[image.indexAt(x - 2, y)] * filter[1] + image.pixels()[image.indexAt(x - 1, y)] * filter[2] + image.pixels()[image.indexAt(x, y)] * filter[3] + image.pixels()[image.indexAt(x + 1, y)] * filter[4];
+        else if (x == image.resolution().x-3)
+            res = image.pixels()[image.indexAt(x - 3, y)] * filter[0] + image.pixels()[image.indexAt(x - 2, y)] * filter[1] + image.pixels()[image.indexAt(x - 1, y)] * filter[2] + image.pixels()[image.indexAt(x, y)] * filter[3] + image.pixels()[image.indexAt(x + 1, y)] * filter[4] + image.pixels()[image.indexAt(x + 2, y)] * filter[5];
+        else
+            res = image.pixels()[image.indexAt(x - 3, y)] * filter[0] +image.pixels()[image.indexAt(x - 2, y)] * filter[1] + image.pixels()[image.indexAt(x - 1, y)] * filter[2] + image.pixels()[image.indexAt(x, y)] * filter[3] + image.pixels()[image.indexAt(x + 1, y)] * filter[4] + image.pixels()[image.indexAt(x + 2, y)] * filter[5] + image.pixels()[image.indexAt(x + 3, y)] * filter[6];
+    } else {
+        if (y == 0)
+            res = image.pixels()[image.indexAt(x, y)] * filter[3] + image.pixels()[image.indexAt(x, y+1)] * filter[4] + image.pixels()[image.indexAt(x, y+2)] * filter[5] + image.pixels()[image.indexAt(x, y+3)] * filter[6];
+        else if (y == 1)
+            res = image.pixels()[image.indexAt(x, y-1)] * filter[2] + image.pixels()[image.indexAt(x, y)] * filter[3] + image.pixels()[image.indexAt(x, y+1)] * filter[4] + image.pixels()[image.indexAt(x, y+2)] * filter[5] + image.pixels()[image.indexAt(x, y+3)] * filter[6];
+        else if (y == 2)
+            res = image.pixels()[image.indexAt(x, y-2)] * filter[1] + image.pixels()[image.indexAt(x, y-1)] * filter[2] + image.pixels()[image.indexAt(x, y)] * filter[3] + image.pixels()[image.indexAt(x, y+1)] * filter[4] + image.pixels()[image.indexAt(x, y+2)] * filter[5] + image.pixels()[image.indexAt(x, y+3)] * filter[6];
+        else if (y == image.resolution().y - 1)
+            res = image.pixels()[image.indexAt(x, y-3)] * filter[0] + image.pixels()[image.indexAt(x, y-2)] * filter[1] + image.pixels()[image.indexAt(x, y-1)] * filter[2] + image.pixels()[image.indexAt(x, y)] * filter[3];
+        else if (y == image.resolution().y - 2)
+            res = image.pixels()[image.indexAt(x, y-3)] * filter[0] + image.pixels()[image.indexAt(x, y-2)] * filter[1] + image.pixels()[image.indexAt(x, y-1)] * filter[2] + image.pixels()[image.indexAt(x, y)] * filter[3] + image.pixels()[image.indexAt(x, y+1)] * filter[4];
+        else if (y == image.resolution().y - 3)
+            res = image.pixels()[image.indexAt(x, y-3)] * filter[0] + image.pixels()[image.indexAt(x, y-2)] * filter[1] + image.pixels()[image.indexAt(x, y-1)] * filter[2] + image.pixels()[image.indexAt(x, y)] * filter[3] + image.pixels()[image.indexAt(x, y+1)] * filter[4] + image.pixels()[image.indexAt(x, y+2)];
+        else
+            res = image.pixels()[image.indexAt(x, y-3)] * filter[0] + image.pixels()[image.indexAt(x, y-2)] * filter[1] + image.pixels()[image.indexAt(x, y-1)] * filter[2] + image.pixels()[image.indexAt(x, y)] * filter[3] + image.pixels()[image.indexAt(x, y+1)] * filter[4] + image.pixels()[image.indexAt(x, y+2)] * filter[5] + image.pixels()[image.indexAt(x, y+3)] * filter[6];
+    }
+    after.pixels()[image.indexAt(x, y)] = res;
+
+}
+
+unsigned long long int combinations(uint32_t n, uint32_t k)
+{
+    if (k == 0 || k == n)
+        return 1;
+    unsigned long long int res = n;
+    for (uint32_t i = 1; i < k; i++)
+        res *= n - i;
+    res = res / factorial(k);
+    return res;
+}
+
+unsigned long long int factorial(uint32_t k) {
+    if (k <= 1)
+        return 1;
+    return k * factorial(k - 1);
+}
+
+
 
 
 // TODO; Extra feature

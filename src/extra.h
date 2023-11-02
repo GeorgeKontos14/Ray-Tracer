@@ -29,6 +29,10 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
 // This method is not unit-tested, but we do expect to find it **exactly here**, and we'd rather
 // not go on a hunting expedition for your implementation, so please keep it here!
 void postprocessImageWithBloom(const Scene& scene, const Features& features, const Trackball& camera, Screen& screen);
+unsigned long long int combinations(uint32_t n, uint32_t k);
+unsigned long long int factorial(uint32_t k);
+void applyFilter(Screen& image, std::vector<float> filter, int x, int y, bool horizontal, Screen& after);
+
 
 // TODO; Extra feature
 // Given a camera ray (or reflected camera ray) and an intersection, evaluates the contribution of a set of
