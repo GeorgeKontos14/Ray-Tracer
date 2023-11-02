@@ -6,6 +6,7 @@
 #include "sampler.h"
 #include "recursive.h"
 #include "screen.h"
+#include "extra.cpp"
 // Suppress warnings in third-party code.
 #include <framework/disable_all_warnings.h>
 DISABLE_WARNINGS_PUSH()
@@ -87,6 +88,34 @@ int main(int argc, char** argv)
                     auto tmp = window.getNormalizedCursorPos();
                     auto pixel = glm::ivec2(tmp * glm::vec2(screen.resolution()));
                     debugRays = generatePixelRays(state, camera, pixel, screen.resolution());
+                    if (config.features.extra.enableDepthOfField) {
+                        debugRays = {};
+                        glm::vec3 cameraPos = camera.position();
+                        glm::vec3 cameraDir = camera.lookAt() - cameraPos;
+
+                        std::uniform_real_distribution<> dis(-config.features.extra.diameter / 2.0, config.features.extra.diameter / 2.0); // https://en.cppreference.com/w/cpp/numeric/random/uniform_real_distribution
+                        std::random_device rd; // Will be used to obtain a seed for the random number engine
+                        std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
+
+                        glm::vec3 focalPoint = cameraPos + glm::normalize(cameraDir) * config.features.extra.focalLength;
+                        glm::vec3 vecNormal = glm::normalize(cameraDir);
+                        glm::vec3 basis1 = glm::normalize(camera.up());
+                        glm::vec3 basis2 = glm::normalize(camera.left());
+
+                        glm::vec3 finalColor = glm::vec3(0, 0, 0);
+                        RenderState stateRays = RenderState { scene, config.features, bvh };
+                        std::vector<Ray> rayForPixel(config.features.extra.depthOfFieldSamples);
+
+                        for (int s = 0; s < config.features.extra.depthOfFieldSamples; ++s) {
+                            float x = dis(gen);
+                            float y = dis(gen);
+                            glm::vec3 windowCameraPoint = cameraPos + x * basis1 + y * basis2;
+                            glm::vec3 windowCameraDirection = glm::normalize(focalPoint - windowCameraPoint);
+                            rayForPixel[s] = Ray { windowCameraPoint, windowCameraDirection };
+                            debugRays.push_back(rayForPixel[s]);
+                        }
+                        glm::vec3 colorPixel = renderRays(stateRays, std::span<Ray>(rayForPixel), 0);
+                    }
                 } break;
                 case GLFW_KEY_A: {
                     debugBVHLeafId++;
@@ -191,6 +220,11 @@ int main(int argc, char** argv)
                 if (config.features.extra.enableDepthOfField) {
                     ImGui::Indent();
                     // Add DOF settings here, if necessary
+                    
+                    ImGui::SliderFloat("Aperture", &config.features.extra.diameter, 0, 5, "%.3f", 0);
+                    ImGui::SliderFloat("Focal length", &config.features.extra.focalLength, 1, 10, "%.3f", 0);
+                    ImGui::SliderInt("Samples", &config.features.extra.depthOfFieldSamples, 1, 10);
+                    
                     ImGui::Unindent();
                 }
                 ImGui::Checkbox("Motion blur", &config.features.extra.enableMotionBlur);
