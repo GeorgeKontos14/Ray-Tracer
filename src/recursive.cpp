@@ -93,8 +93,11 @@ Ray generateReflectionRay(Ray ray, HitInfo hitInfo)
 // This method is unit-tested, so do not change the function signature.
 Ray generatePassthroughRay(Ray ray, HitInfo hitInfo)
 {
-    // TODO: generate a passthrough ray
-    return Ray {};
+    Ray passThroughRay;
+    //setting the direction and the origin of the ray and then returning it
+    passThroughRay.direction = ray.direction;
+    passThroughRay.origin = ray.origin + ray.direction * (ray.t + 0.001f);
+    return passThroughRay;
 }
 
 // TODO: standard feature
@@ -130,4 +133,5 @@ void renderRayTransparentComponent(RenderState& state, Ray ray, const HitInfo& h
     // TODO; you should first implement generatePassthroughRay()
     Ray r = generatePassthroughRay(ray, hitInfo);
     // ...
+    hitColor = renderRay(state, r, rayDepth + 1) * hitInfo.material.transparency + hitColor * (1.0f - hitInfo.material.transparency);
 }
