@@ -70,6 +70,13 @@ int main(int argc, char** argv)
         SceneType sceneType { SceneType::SingleTriangle };
         std::vector<Ray> debugRays;
 
+        glm::vec3 FocPoint;
+        glm::vec3 ver0;
+        glm::vec3 ver1;
+        glm::vec3 ver2;
+        glm::vec3 ver3;
+        std::vector<glm::vec3> debugPoints;
+
         Scene scene = loadScenePrebuilt(sceneType, config.dataPath);
         BVH bvh(scene, config.features);
 
@@ -102,19 +109,34 @@ int main(int argc, char** argv)
                         glm::vec3 basis1 = glm::normalize(camera.up());
                         glm::vec3 basis2 = glm::normalize(camera.left());
 
+                        float halfD = config.features.extra.diameter / 2.0f;
+                        glm::vec3 vertex0 = -halfD * basis1 + halfD * basis2 + cameraPos;
+                        glm::vec3 vertex1 = -halfD * basis1 - halfD * basis2 + cameraPos;
+                        glm::vec3 vertex2 = halfD * basis1 + halfD * basis2 + cameraPos;
+                        glm::vec3 vertex3 = halfD * basis1 - halfD * basis2 + cameraPos;
+                        ver0 = vertex0;
+                        ver1 = vertex1;
+                        ver2 = vertex2;
+                        ver3 = vertex3;
+                        //drawTriangle(Vertex(vertex0), Vertex(vertex1), Vertex(vertex2));
+                        //drawTriangle(Vertex(vertex1), Vertex(vertex2), Vertex(vertex3));
+
                         glm::vec3 finalColor = glm::vec3(0, 0, 0);
                         RenderState stateRays = RenderState { scene, config.features, bvh };
                         std::vector<Ray> rayForPixel(config.features.extra.depthOfFieldSamples);
-
+                        debugPoints = {};
                         for (int s = 0; s < config.features.extra.depthOfFieldSamples; ++s) {
                             float x = dis(gen);
                             float y = dis(gen);
                             glm::vec3 windowCameraPoint = cameraPos + x * basis1 + y * basis2;
+                            debugPoints.push_back(windowCameraPoint);
                             glm::vec3 windowCameraDirection = glm::normalize(focalPoint - windowCameraPoint);
+                            
                             rayForPixel[s] = Ray { windowCameraPoint, windowCameraDirection };
                             debugRays.push_back(rayForPixel[s]);
                         }
                         glm::vec3 colorPixel = renderRays(stateRays, std::span<Ray>(rayForPixel), 0);
+                        FocPoint = focalPoint;
                     }
                 } break;
                 case GLFW_KEY_A: {
@@ -223,7 +245,7 @@ int main(int argc, char** argv)
                     
                     ImGui::SliderFloat("Aperture", &config.features.extra.diameter, 0, 5, "%.3f", 0);
                     ImGui::SliderFloat("Focal length", &config.features.extra.focalLength, 1, 10, "%.3f", 0);
-                    ImGui::SliderInt("Samples", &config.features.extra.depthOfFieldSamples, 1, 10);
+                    ImGui::SliderInt("Samples", &config.features.extra.depthOfFieldSamples, 1, 40);
                     
                     ImGui::Unindent();
                 }
@@ -418,6 +440,14 @@ int main(int argc, char** argv)
                         glDepthFunc(GL_LEQUAL);
                         RenderState state = { .scene = scene, .features = config.features, .bvh = bvh, .sampler = { debugRaySeed } };
                         (void)renderRays(state, debugRays);
+                        if (config.features.extra.enableDepthOfField) {
+                            drawSphere(FocPoint, 0.01f, glm::vec3(1, 0, 0));
+                            drawTriangle(Vertex(ver1), Vertex(ver2), Vertex(ver3));
+                            drawTriangle(Vertex(ver0), Vertex(ver1), Vertex(ver2));
+                            for (const auto& point : debugPoints) {
+                                drawSphere(point, 0.005f, glm::vec3(0, 1, 0));
+                            }
+                        }
                         enableDebugDraw = false;
                     }
                 }
