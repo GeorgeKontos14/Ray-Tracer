@@ -26,14 +26,14 @@ glm::vec3 sampleTextureNearest(const Image& image, const glm::vec2& texCoord)
     float j = x * (width - 1) + 0.5f;
     float i = y * (height - 1) + 0.5f;
    
-    //they have to be between bounds
+    //they have to be between bounds so clamp
     j = glm::clamp(j, 0.0f, (float)width - 1);
     i = glm::clamp(i, 0.0f, (float)height - 1);
 
 
-
     int i1 = glm::floor(i);
     int j1 = glm::floor(j);
+    //we need integers for the calculation of the index
     int index = width * i1 + j1;
     return image.pixels[index];
 }
@@ -59,7 +59,7 @@ glm::vec3 sampleTextureBilinear(const Image& image, const glm::vec2& texCoord)
     int height = image.height;
     float x = texCoord.x;
     float y = texCoord.y;
-
+     //because first pixel should be at 0.5, 0.5
     float i = y * height + 0.5f;
     float j = width * x + 0.5f;
 
