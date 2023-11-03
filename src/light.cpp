@@ -13,7 +13,6 @@ DISABLE_WARNINGS_PUSH()
 #include <glm/geometric.hpp>
 DISABLE_WARNINGS_POP()
 
-
 // TODO: Standard feature
 // Given a single segment light, transform a uniformly distributed 1d sample in [0, 1),
 // into a uniformly sampled position and an interpolated color on the segment light,
@@ -59,7 +58,7 @@ void sampleParallelogramLight(const glm::vec2& sample, const ParallelogramLight&
 // - hitInfo;       information about the current intersection
 // - return;        whether the light is visible (true) or not (false)
 // This method is unit-tested, so do not change the function signature.
-bool visibilityOfLightSampleBinary(RenderState& state, const glm::vec3& lightPosition, const glm::vec3 &lightColor, const Ray& ray, const HitInfo& hitInfo)
+bool visibilityOfLightSampleBinary(RenderState& state, const glm::vec3& lightPosition, const glm::vec3& lightColor, const Ray& ray, const HitInfo& hitInfo)
 {
     if (!state.features.enableShadows) {
         // Shadows are disabled in the renderer
@@ -72,7 +71,6 @@ bool visibilityOfLightSampleBinary(RenderState& state, const glm::vec3& lightPos
         Ray visibilityRay;
         visibilityRay.origin = lightPosition;
         visibilityRay.direction = glm::normalize(fromLight);
-
 
         Ray fromPoint;
         fromPoint.origin = point + 0.0001f * hitInfo.normal;
@@ -90,7 +88,7 @@ bool visibilityOfLightSampleBinary(RenderState& state, const glm::vec3& lightPos
             return true;
         } else {
             drawRay(fromPoint, glm::vec3(1, 0, 0));
-            return false;  
+            return false;
         }
     }
 }
@@ -123,9 +121,8 @@ glm::vec3 visibilityOfLightSampleTransparency(RenderState& state, const glm::vec
     HitInfo visibilityHit;
     state.bvh.intersect(state, visibilityRay, visibilityHit);
     float lightDistance = glm::length(visibilityRay.t * visibilityRay.direction + visibilityRay.origin - point);
- 
-     if (lightDistance < 0.00001f) {
-        //std::cout << "pyk";
+
+    if (lightDistance < 0.00001f) {
         return lightColor;
     } else {
         if (visibilityHit.material.transparency > 0.99999f) {
@@ -133,13 +130,12 @@ glm::vec3 visibilityOfLightSampleTransparency(RenderState& state, const glm::vec
         }
         glm::vec3 lightContribution = lightColor * visibilityHit.material.kd * (1.0f - visibilityHit.material.transparency);
         glm::vec3 pointNew = (visibilityRay.t + 0.001f) * visibilityRay.direction + visibilityRay.origin;
-        //std::cout << visibilityHit.material.transparency << " " << pointNew.x << " " << pointNew.y << " " << pointNew.z << std::endl;
+        // std::cout << visibilityHit.material.transparency << " " << pointNew.x << " " << pointNew.y << " " << pointNew.z << std::endl;
         drawSphere(pointNew, 0.01f, glm::vec3(0, 1, 0));
 
-        //return visibilityOfLightSampleTransparency(state, pointNew, lightContribution, ray, hitInfo);
+        // return visibilityOfLightSampleTransparency(state, pointNew, lightContribution, ray, hitInfo);
         return lightContribution;
     }
-    
 }
 
 // TODO: Standard feature
@@ -192,7 +188,7 @@ glm::vec3 computeContributionSegmentLight(RenderState& state, const SegmentLight
     for (int i = 0; i < numSamples; i++) {
         PointLight p;
         sampleSegmentLight(state.sampler.next_1d(), light, p.position, p.color);
-        result += computeContributionPointLight(state, p, ray, hitInfo)/ (float) numSamples;
+        result += computeContributionPointLight(state, p, ray, hitInfo) / (float)numSamples;
     }
     return result;
 }
