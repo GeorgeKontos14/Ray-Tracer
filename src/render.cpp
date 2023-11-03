@@ -89,8 +89,10 @@ std::vector<Ray> generatePixelRaysMultisampled(RenderState& state, const Trackba
     for (int j = 0; j < numSamples; j++)
     {
         
-        float pixel1 = (pixel.x + state.sampler.next_1d()) / screenResolution.x;
-        float pixel2 = (pixel.y + state.sampler.next_1d()) / screenResolution.y;
+        float pixel1 = (pixel.x + state.sampler.next_1d())/screenResolution.x;
+        float pixel2 = (pixel.y + state.sampler.next_1d())/screenResolution.y;
+
+
         //generate ray based on the pixels
         rays.push_back(camera.generateRay({pixel1, pixel2}));
     }
