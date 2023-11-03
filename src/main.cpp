@@ -249,7 +249,7 @@ int main(int argc, char** argv)
                     ImGui::Indent();
                     // Add DOF settings here, if necessary
                     
-                    ImGui::SliderFloat("Aperture", &config.features.extra.diameter, 0, 5, "%.3f", 0);
+                    ImGui::SliderFloat("Side of a lens", &config.features.extra.diameter, 0, 5, "%.3f", 0);
                     ImGui::SliderFloat("Focal length", &config.features.extra.focalLength, 1, 10, "%.3f", 0);
                     ImGui::SliderInt("Samples", &config.features.extra.depthOfFieldSamples, 1, 40);
                     
@@ -458,8 +458,8 @@ int main(int argc, char** argv)
                         (void)renderRays(state, debugRays);
                         if (config.features.extra.enableDepthOfField) {
                             drawSphere(FocPoint, 0.01f, glm::vec3(1, 0, 0));
-                            drawTriangle(Vertex(ver1), Vertex(ver2), Vertex(ver3));
-                            drawTriangle(Vertex(ver0), Vertex(ver1), Vertex(ver2));
+                            drawTriangle(Vertex(ver1), Vertex(ver2), Vertex(ver3), glm::vec3(1.0f));
+                            drawTriangle(Vertex(ver0), Vertex(ver1), Vertex(ver2), glm::vec3(1.0f));
                             for (const auto& point : debugPoints) {
                                 drawSphere(point, 0.005f, glm::vec3(0, 1, 0));
                             }
