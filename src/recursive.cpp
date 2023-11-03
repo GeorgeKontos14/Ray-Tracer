@@ -135,3 +135,6 @@ void renderRayTransparentComponent(RenderState& state, Ray ray, const HitInfo& h
     // ...
     hitColor = renderRay(state, r, rayDepth + 1) * hitInfo.material.transparency + hitColor * (1.0f - hitInfo.material.transparency);
 }
+
+
+
