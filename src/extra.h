@@ -29,6 +29,10 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
 // This method is not unit-tested, but we do expect to find it **exactly here**, and we'd rather
 // not go on a hunting expedition for your implementation, so please keep it here!
 void postprocessImageWithBloom(const Scene& scene, const Features& features, const Trackball& camera, Screen& screen);
+unsigned long long int combinations(uint32_t n, uint32_t k);
+unsigned long long int factorial(uint32_t k);
+void applyFilter(Screen& image, std::vector<float> filter, int x, int y, bool horizontal, Screen& after);
+
 
 // TODO; Extra feature
 // Given a camera ray (or reflected camera ray) and an intersection, evaluates the contribution of a set of
@@ -54,3 +58,4 @@ glm::vec3 sampleEnvironmentMap(RenderState& state, Ray ray);
 // For a description of the method's arguments, refer to 'bounding_volume_hierarchy.cpp'
 // NOTE: this method is unit-tested, so do not change the function signature.
 size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::span<BVHInterface::Primitive> primitives);
+float costOfSplit(const AxisAlignedBox& aabb, float split, uint32_t axis, int nA, int nB);

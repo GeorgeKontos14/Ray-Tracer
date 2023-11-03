@@ -11,7 +11,7 @@
 #include <chrono>
 #include <framework/opengl_includes.h>
 #include <iostream>
-
+#include <stack>
 
 // Helper method to fill in hitInfo object. This can be safely ignored (or extended).
 // Note: many of the functions in this helper tie in to standard/extra features you will have
@@ -425,39 +425,6 @@ bool interBVH(const AxisAlignedBox& box, Ray& ray) {
     return false;
 }
 
-bool intersectRayWithNode(RenderState& state, BVHInterface::Node node, Ray& ray, int& primInd, HitInfo hitInfo, std::span<const BVHInterface::Node> nodes, std::span<const BVHInterface::Primitive> primitives)
-{
-    //int old = ray.t;
-    bool in = interBVH(node.aabb, ray);
-    if (!in)
-        return false;
-    //ray.t = old;
-   
-    if (node.isLeaf()) {
-        //ray.t = old;
-        bool intersectPrim;
-        BVHInterface::Primitive p;
-        bool res = false;
-        int old_t = ray.t;
-        for (int i = node.primitiveOffset(); i < node.primitiveOffset() + node.primitiveCount(); i++) {
-            p = primitives[i];
-            intersectPrim = intersectRayWithTriangle(p.v0.position, p.v1.position, p.v2.position, ray, hitInfo);
-            if (intersectPrim) {
-                res = true;
-                if (ray.t < old_t) {
-                    old_t = ray.t;
-                    //updateHitInfo(state, primitives[i], ray, hitInfo);
-                    primInd = i;
-                }
-            }
-        }
-
-        return res;
-    }
-    bool leftChild = intersectRayWithNode(state, nodes[node.leftChild()], ray, primInd, hitInfo, nodes, primitives);
-    bool rightChild = intersectRayWithNode(state, nodes[node.rightChild()], ray, primInd, hitInfo, nodes, primitives);
-    return leftChild || rightChild;
-}
 
 // TODO: Standard feature
 // Hierarchy traversal routine; called by the BVH's intersect(),
@@ -487,7 +454,7 @@ bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, 
     // Return value
     bool is_hit = false;
 
-    if (state.features.enableAccelStructure) {
+    if (state.features.enableAccelStructure || state.features.extra.enableBvhSahBinning) {
         // TODO: implement here your (probably stack-based) BVH traversal.
         //
         // Some hints (refer to bvh_interface.h either way). BVH nodes are packed, so the
@@ -504,10 +471,32 @@ bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, 
         //
         // Note that it is entirely possible for a ray to hit a leaf node, but not its primitives,
         // and it is likewise possible for a ray to hit both children of a node.
+          
+        BVHInterface::Primitive prim;
+        std::stack<int> inds;
+        inds.push(0);
+        BVHInterface::Node n;
         int primInd = 0;
-        is_hit = intersectRayWithNode(state, nodes[0], ray, primInd, hitInfo, nodes, primitives);
-        if (is_hit)
-            updateHitInfo(state, bvh.primitives()[primInd], ray, hitInfo);
+        while (!inds.empty()) {
+            n = nodes[inds.top()];
+            inds.pop();
+            if (interBVH(n.aabb, ray)) {
+                if (n.isLeaf()) {
+                    //is_hit |= intersectLeaf(state, n, ray, primInd, hitInfo, primitives);
+                    for (int i = n.primitiveOffset(); i < n.primitiveOffset() + n.primitiveCount(); i++) {
+                        prim = primitives[i];
+                        const auto& [v0, v1, v2] = std::tie(prim.v0, prim.v1, prim.v2);
+                        if (intersectRayWithTriangle(v0.position, v1.position, v2.position, ray, hitInfo)) {
+                            updateHitInfo(state, primitives[i], ray, hitInfo);
+                            is_hit = true;
+                        }
+                    }
+                } else {
+                    inds.push(n.leftChild());
+                    inds.push(n.rightChild());
+                }
+            }
+        }
         return is_hit;
     } else {
         // Naive implementation; simply iterates over all primitives
@@ -635,23 +624,25 @@ void BVH::buildRecursive(const Scene& scene, const Features& features, std::span
     }
 
     //If it is an inner node, we split the span of primitives
-    //Extra feature; to be implemented
-    if (features.extra.enableBvhSahBinning)
-        return;
     //If the extra feature is disabled, we split by calculating the median
     uint32_t longest = computeAABBLongestAxis(aabb);
-    size_t splitInd = splitPrimitivesByMedian(aabb, longest, primitives);
-    //Using the above split index, we split the primitives into the spans of the left and right child nodes
-    std::span<BVH::Primitive> leftPrimitives = primitives.subspan(0, splitInd);
-    std::span<BVH::Primitive> rightPrimitives = primitives.subspan(splitInd, primitives.size() - splitInd);
-    //We calculate the indices of the left and right children in the m_nodes vector
+    int splitInd = 0;
+    if (features.extra.enableBvhSahBinning) 
+        splitInd = splitPrimitivesBySAHBin(aabb, longest, primitives);
+    else 
+        splitInd = splitPrimitivesByMedian(aabb, longest, primitives);
+    if (splitInd < 0 || splitInd > primitives.size()) {
+        BVH::Node leaf = buildLeafData(scene, features, aabb, primitives);
+        m_nodes[nodeIndex] = leaf;
+        return;
+    }
     uint32_t leftInd = nextNodeIdx();
     uint32_t rightInd = nextNodeIdx();
-    //We store the data of the current node in the m_nodes vector
+    // We store the data of the current node in the m_nodes vector
     m_nodes[nodeIndex] = buildNodeData(scene, features, aabb, leftInd, rightInd);
-    //Recursively build child nodes until we reach leaves
-    buildRecursive(scene, features, leftPrimitives, leftInd);
-    buildRecursive(scene, features, rightPrimitives, rightInd);
+    // Recursively build child nodes until we reach leaves
+    buildRecursive(scene, features, primitives.subspan(0, splitInd), leftInd);
+    buildRecursive(scene, features, primitives.subspan(splitInd, primitives.size() - splitInd), rightInd);
     // Time Complexity: O(n(log(n))^2), where n = primitives.size()
     // Space Complexity: O(nlog(n))
 }
@@ -777,8 +768,129 @@ void BVH::debugDrawLeaf(int leafIndex)
     BVHInterface::Primitive p;
     for (int i = current.primitiveOffset(); i < current.primitiveOffset() + count; i++) {
         p = m_primitives[i];
-        drawTriangle(p.v0, p.v1, p.v2);
+        drawTriangle(p.v0, p.v1, p.v2, glm::vec3{0, 0, 1.0f});
     }
     // Time Complexity: O(n), where n = #nodes
     // Space Complexity: O(1)
+}
+
+// Visual debug methods that demonstrates a split among a given axis, to the given node
+// - splitLine; the % of the axis length in which the split happens
+// - nodeIdx; the index of the given node in m_nodes
+// - axis; 0, 1, 2 for x, y, z respectively
+void BVH::debugDrawSplit(float splitLine, int nodeIdx, uint32_t axis) {
+    // If the index of the node is 1, then the objecct in m_nodes does not represent an actual node of the BVH
+    if (nodeIdx == 1)
+        return;
+    BVHInterface::Node n = m_nodes[nodeIdx];
+    drawAABB(n.aabb, DrawMode::Wireframe, glm::vec3(0, 0, 1.0f), 1.0f);
+    float length;
+    float splitPos;
+    AxisAlignedBox splitPlane {
+        n.aabb.lower,
+        n.aabb.upper
+    };
+    if (axis == 0) {
+        length = n.aabb.upper.x - n.aabb.lower.x;
+        splitPos = n.aabb.lower.x + splitLine * length;
+        splitPlane.lower.x = splitPos;
+        splitPlane.upper.x = splitPos;
+        drawAABB(splitPlane, DrawMode::Filled, glm::vec3(0.8f, 0, 0.8f), 0.4f);
+    } else if (axis == 1) {
+        length = n.aabb.upper.y - n.aabb.lower.y;
+        splitPos = n.aabb.lower.y + splitLine * length;
+        splitPlane.lower.y = splitPos;
+        splitPlane.upper.y = splitPos;
+        drawAABB(splitPlane, DrawMode::Filled, glm::vec3(0.8f, 0, 0.8f), 0.4f);
+    } else {
+        length = n.aabb.upper.z - n.aabb.lower.z;
+        splitPos = n.aabb.lower.z + splitLine * length;
+        splitPlane.lower.z = splitPos;
+        splitPlane.upper.z = splitPos;
+        drawAABB(splitPlane, DrawMode::Filled, glm::vec3(0.8f, 0, 0.8f), 0.4f);
+    }
+    
+}
+
+// Visual Debug method that demonstrates the optimal split for the root of the BVH
+void BVH::debugDrawOptimalSplit() {
+    using Primitive = BVH::Primitive;
+
+    std::span<Primitive> prims(m_primitives);
+    AxisAlignedBox box = computeSpanAABB(prims);
+    drawAABB(box, DrawMode::Wireframe, glm::vec3(0, 0, 1.0f), 1.0f);
+    uint32_t axis = computeAABBLongestAxis(box);
+    int numBins = 20;
+    std::vector<float> centroidCoord;
+    float step = 0;
+    float lowerCoord = 0;
+    if (axis == 0) {
+        lowerCoord = box.lower.x;
+        step = (box.upper.x - box.lower.x) / numBins;
+        for (Primitive p : m_primitives)
+            centroidCoord.push_back(computePrimitiveCentroid(p).x);
+    } else if (axis == 1) {
+        lowerCoord = box.lower.y;
+        step = (box.upper.y - box.lower.y) / numBins;
+        for (Primitive p : m_primitives)
+            centroidCoord.push_back(computePrimitiveCentroid(p).y);
+    } else {
+        lowerCoord = box.lower.z;
+        step = (box.upper.z - box.lower.z) / numBins;
+        for (Primitive p : m_primitives)
+            centroidCoord.push_back(computePrimitiveCentroid(p).z);
+    }
+    int nA;
+    int nB;
+    float currentCost;
+    float minCost = std::numeric_limits<float>::max();
+    float minSplitLine;
+    int minNA = 0;
+    for (int i = 1; i < numBins; i++) {
+        nA = 0;
+        nB = 0;
+        for (float c : centroidCoord) {
+            if (c <= lowerCoord + i * step)
+                nA++;
+            else
+                nB++;
+        }
+        currentCost = costOfSplit(box, i * step, axis, nA, nB);
+        if (currentCost < minCost) {
+            minCost = currentCost;
+            minSplitLine = i * step;
+            minNA = nA;
+        }
+    }
+    AxisAlignedBox aabb {
+        box.lower,
+        box.upper
+    };
+    if (minNA >= m_primitives.size()) {
+        if (axis == 0)
+            aabb.upper.x = aabb.lower.x;
+        else if (axis == 1)
+            aabb.upper.y = aabb.lower.y;
+        else
+            aabb.upper.z = aabb.lower.z;
+    } else if (minNA == 0) {
+        if (axis == 0)
+            aabb.lower.x = aabb.upper.x;
+        else if (axis == 1)
+            aabb.lower.y = aabb.upper.y;
+        else
+            aabb.lower.z = aabb.upper.z;
+    } else {
+        if (axis == 0) {
+            aabb.lower.x = lowerCoord + minSplitLine;
+            aabb.upper.x = lowerCoord + minSplitLine;
+        } else if (axis == 0) {
+            aabb.lower.y = lowerCoord + minSplitLine;
+            aabb.upper.y = lowerCoord + minSplitLine;
+        } else {
+            aabb.lower.z = lowerCoord + minSplitLine;
+            aabb.upper.z = lowerCoord + minSplitLine;
+        }
+    }
+    drawAABB(aabb, DrawMode::Filled, glm::vec3 { 1.0f, 1.0f, 0 }, 0.4f);
 }

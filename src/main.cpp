@@ -75,8 +75,14 @@ int main(int argc, char** argv)
 
         int bvhDebugLevel = 0;
         int bvhDebugLeaf = 0;
+        int bvhDebugNode = 0;
+        float maxOffset = 0;
+        float offset = 0;
+        int axis = 0;
         bool debugBVHLevel { false };
         bool debugBVHLeaf { false };
+        bool debugSAHNode { false };
+        bool debugOptimalSAH { false };
         ViewMode viewMode { ViewMode::Rasterization };
 
         window.registerKeyCallback([&](int key, int /* scancode */, int action, int /* mods */) {
@@ -288,6 +294,16 @@ int main(int argc, char** argv)
                 ImGui::Checkbox("Draw BVH Leaf", &debugBVHLeaf);
                 if (debugBVHLeaf)
                     ImGui::SliderInt("BVH Leaf", &bvhDebugLeaf, 1, bvh.numLeaves());
+                if (config.features.extra.enableBvhSahBinning) {
+                    ImGui::Checkbox("Draw SAH Node Split", &debugSAHNode);
+                    if (debugSAHNode) {
+                        ImGui::SliderInt("BVH Node", &bvhDebugNode, 0, bvh.nodes().size() - 1);
+                        ImGui::SliderFloat("%split", &offset, 0, 1);
+                        ImGui::SliderInt("Split Axis", &axis, 0, 2);
+                    }
+                    ImGui::Checkbox("Draw Optimal SAH Split", &debugOptimalSAH);
+                }
+
             }
 
             ImGui::Spacing();
@@ -425,7 +441,7 @@ int main(int argc, char** argv)
 
                 drawLightsOpenGL(scene, camera, selectedLightIdx);
 
-                if (debugBVHLevel || debugBVHLeaf) {
+                if (debugBVHLevel || debugBVHLeaf || debugSAHNode || debugOptimalSAH) {
                     glPushAttrib(GL_ALL_ATTRIB_BITS);
                     setOpenGLMatrices(camera);
                     glDisable(GL_LIGHTING);
@@ -440,6 +456,10 @@ int main(int argc, char** argv)
                         bvh.debugDrawLevel(bvhDebugLevel);
                     if (debugBVHLeaf)
                         bvh.debugDrawLeaf(bvhDebugLeaf);
+                    if (debugSAHNode)
+                        bvh.debugDrawSplit(offset, bvhDebugNode, axis);
+                    if (debugOptimalSAH)
+                        bvh.debugDrawOptimalSplit();
                     enableDebugDraw = false;
                     glPopAttrib();
                 }
