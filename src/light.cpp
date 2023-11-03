@@ -6,6 +6,7 @@
 #include "render.h"
 #include "scene.h"
 #include "shading.h"
+#include <iostream>
 // Suppress warnings in third-party code.
 #include <framework/disable_all_warnings.h>
 DISABLE_WARNINGS_PUSH()
@@ -25,8 +26,8 @@ DISABLE_WARNINGS_POP()
 void sampleSegmentLight(const float& sample, const SegmentLight& light, glm::vec3& position, glm::vec3& color)
 {
     // TODO: implement this function.
-    position = glm::vec3(0.0);
-    color = glm::vec3(0.0);
+    position = (1.0f - sample) * light.endpoint0 + sample * light.endpoint1;
+    color = (1.0f - sample) * light.color0 + sample * light.color1;
 }
 
 // TODO: Standard feature
@@ -41,8 +42,10 @@ void sampleSegmentLight(const float& sample, const SegmentLight& light, glm::vec
 void sampleParallelogramLight(const glm::vec2& sample, const ParallelogramLight& light, glm::vec3& position, glm::vec3& color)
 {
     // TODO: implement this function.
-    position = glm::vec3(0.0);
-    color = glm::vec3(0.0);
+    float a = sample.x;
+    float b = sample.y;
+    position = light.v0 + a * light.edge01 + b * light.edge02;
+    color = (1.f - a) * (1.f - b) * light.color0 + a * (1.f - b) * light.color1 + (1.f - a) * b * light.color2 + a * b * light.color3;
 }
 
 // TODO: Standard feature
@@ -64,7 +67,31 @@ bool visibilityOfLightSampleBinary(RenderState& state, const glm::vec3& lightPos
     } else {
         // Shadows are enabled in the renderer
         // TODO: implement this function; currently, the light simply passes through
-        return true;
+        glm::vec3 point = ray.origin + ray.direction * ray.t;
+        glm::vec3 fromLight = point - lightPosition;
+        Ray visibilityRay;
+        visibilityRay.origin = lightPosition;
+        visibilityRay.direction = glm::normalize(fromLight);
+
+
+        Ray fromPoint;
+        fromPoint.origin = point + 0.0001f * hitInfo.normal;
+        fromPoint.direction = glm::normalize(-fromLight);
+
+        HitInfo visibilityHit;
+        HitInfo visibilityHitFromPoint;
+        state.bvh.intersect(state, visibilityRay, visibilityHit);
+        state.bvh.intersect(state, fromPoint, visibilityHitFromPoint);
+        float lightDistance = glm::length(visibilityRay.t * visibilityRay.direction + lightPosition - point);
+
+        if (lightDistance < 0.00001f) {
+            fromPoint.t = visibilityRay.t;
+            drawRay(fromPoint, lightColor);
+            return true;
+        } else {
+            drawRay(fromPoint, glm::vec3(1, 0, 0));
+            return false;  
+        }
     }
 }
 
@@ -86,7 +113,33 @@ bool visibilityOfLightSampleBinary(RenderState& state, const glm::vec3& lightPos
 glm::vec3 visibilityOfLightSampleTransparency(RenderState& state, const glm::vec3& lightPosition, const glm::vec3& lightColor, const Ray& ray, const HitInfo& hitInfo)
 {
     // TODO: implement this function; currently, the light simply passes through
-    return lightColor;
+    glm::vec3 point = ray.origin + ray.direction * ray.t;
+    glm::vec3 fromLight = point - lightPosition;
+
+    Ray visibilityRay;
+    visibilityRay.origin = lightPosition;
+    visibilityRay.direction = glm::normalize(fromLight);
+
+    HitInfo visibilityHit;
+    state.bvh.intersect(state, visibilityRay, visibilityHit);
+    float lightDistance = glm::length(visibilityRay.t * visibilityRay.direction + visibilityRay.origin - point);
+ 
+     if (lightDistance < 0.00001f) {
+        //std::cout << "pyk";
+        return lightColor;
+    } else {
+        if (visibilityHit.material.transparency > 0.99999f) {
+            return glm::vec3(0, 0, 0);
+        }
+        glm::vec3 lightContribution = lightColor * visibilityHit.material.kd * (1.0f - visibilityHit.material.transparency);
+        glm::vec3 pointNew = (visibilityRay.t + 0.001f) * visibilityRay.direction + visibilityRay.origin;
+        //std::cout << visibilityHit.material.transparency << " " << pointNew.x << " " << pointNew.y << " " << pointNew.z << std::endl;
+        drawSphere(pointNew, 0.01f, glm::vec3(0, 1, 0));
+
+        //return visibilityOfLightSampleTransparency(state, pointNew, lightContribution, ray, hitInfo);
+        return lightContribution;
+    }
+    
 }
 
 // TODO: Standard feature
@@ -108,7 +161,8 @@ glm::vec3 computeContributionPointLight(RenderState& state, const PointLight& li
     glm::vec3 p = ray.origin + ray.t * ray.direction;
     glm::vec3 l = glm::normalize(light.position - p);
     glm::vec3 v = -ray.direction;
-    return computeShading(state, v, l, light.color, hitInfo);
+
+    return computeShading(state, v, l, visibilityOfLightSample(state, light.position, light.color, ray, hitInfo), hitInfo);
 }
 
 // TODO: Standard feature
@@ -134,7 +188,13 @@ glm::vec3 computeContributionSegmentLight(RenderState& state, const SegmentLight
     // - sample the segment light
     // - test the sample's visibility
     // - then evaluate the phong model
-    return glm::vec3(0);
+    glm::vec3 result = glm::vec3(0, 0, 0);
+    for (int i = 0; i < numSamples; i++) {
+        PointLight p;
+        sampleSegmentLight(state.sampler.next_1d(), light, p.position, p.color);
+        result += computeContributionPointLight(state, p, ray, hitInfo)/ (float) numSamples;
+    }
+    return result;
 }
 
 // TODO: Standard feature
@@ -161,7 +221,13 @@ glm::vec3 computeContributionParallelogramLight(RenderState& state, const Parall
     // - sample the parallellogram light
     // - test the sample's visibility
     // - then evaluate the phong model
-    return glm::vec3(0);
+    glm::vec3 result = glm::vec3(0, 0, 0);
+    for (int i = 0; i < numSamples; i++) {
+        PointLight p;
+        sampleParallelogramLight(state.sampler.next_2d(), light, p.position, p.color);
+        result += computeContributionPointLight(state, p, ray, hitInfo) / (float)numSamples;
+    }
+    return result;
 }
 
 // This function is provided as-is. You do not have to implement it.

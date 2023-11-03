@@ -4,6 +4,8 @@
 #include "recursive.h"
 #include "shading.h"
 #include <framework/trackball.h>
+#include <iostream>
+#include "draw.h"
 
 // TODO; Extra feature
 // Given the same input as for `renderImage()`, instead render an image with your own implementation
@@ -17,8 +19,52 @@ void renderImageWithDepthOfField(const Scene& scene, const BVHInterface& bvh, co
         return;
     }
 
-    // ...
+    glm::vec3 cameraPos = camera.position();
+    glm::vec3 cameraDir = camera.lookAt() - cameraPos;
+
+    std::uniform_real_distribution<> dis(-features.extra.diameter / 2.0, features.extra.diameter / 2.0); // https://en.cppreference.com/w/cpp/numeric/random/uniform_real_distribution
+    std::random_device rd; // Will be used to obtain a seed for the random number engine
+    std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
+
+    int maxx = screen.resolution().x;
+    int maxy = screen.resolution().y;
+
+
+    glm::vec3 vecNormal = glm::normalize(cameraDir);
+    glm::vec3 basis1 = glm::normalize(camera.up());
+    glm::vec3 basis2 = glm::normalize(camera.left());
+    
+    std::vector<Ray> rayForPixel(features.extra.depthOfFieldSamples);
+
+    for (int ix = 0; ix < maxx; ++ix) {
+        for (int iy = 0; iy < maxy; ++iy) {
+            glm::vec3 finalColor = glm::vec3(0, 0, 0);
+            RenderState stateRays = RenderState {scene, features, bvh};
+
+
+            Ray newDir = camera.generateRay(glm::vec2(1.0f * ix / maxx * 2 - 1, 1.0f * iy / maxy * 2 - 1));
+
+            glm::vec3 focalPoint = cameraPos + glm::normalize(newDir.direction) * features.extra.focalLength;
+            for (int s = 0; s < features.extra.depthOfFieldSamples; ++s) {
+                float x = dis(gen);
+                float y = dis(gen);
+                glm::vec3 windowCameraPoint = cameraPos + x * basis1 + y * basis2;
+                glm::vec3 windowCameraDirection = glm::normalize(focalPoint - windowCameraPoint);
+                rayForPixel[s] = Ray { windowCameraPoint, windowCameraDirection };
+                
+            }
+            glm::vec3 colorPixel = renderRays(stateRays, std::span<Ray>(rayForPixel), 0);
+            screen.setPixel(ix, iy, colorPixel);
+        }
+    }
+    return;
+
 }
+
+
+
+
+
 
 // TODO; Extra feature
 // Given the same input as for `renderImage()`, instead render an image with your own implementation
