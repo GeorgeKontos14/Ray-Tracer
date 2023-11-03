@@ -121,7 +121,7 @@ void postprocessImageWithBloom(const Scene& scene, const Features& features, con
         }
     }
 
-    // Add to original values
+    // Add to original values to the already 
     for (int i = 0; i < image.pixels().size(); i++) {
         image.pixels()[i] = image.pixels()[i] + filtered.pixels()[i];  
     }
