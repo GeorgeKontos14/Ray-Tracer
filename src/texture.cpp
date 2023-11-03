@@ -23,16 +23,18 @@ glm::vec3 sampleTextureNearest(const Image& image, const glm::vec2& texCoord)
     int height = image.height;
     float x = texCoord.x;
     float y = texCoord.y;
-    float j = glm::floor((width * x));
-    float i = glm::floor((height * y));
-    int j1 = glm::floor(j);
-    int i1 = glm::floor(i);
+    float j = x * (width - 1) + 0.5f;
+    float i = y * (height - 1) + 0.5f;
+   
     //they have to be between bounds
-    j1 = glm::clamp(j1, 0, width - 1);
-    i1 = glm::clamp(i1, 0, height - 1);
-    //j*width+i
-    int index = j1 * width + i1;
-    
+    j = glm::clamp(j, 0.0f, (float)width - 1);
+    i = glm::clamp(i, 0.0f, (float)height - 1);
+
+
+
+    int i1 = glm::floor(i);
+    int j1 = glm::floor(j);
+    int index = width * i1 + j1;
     return image.pixels[index];
 }
 
@@ -77,7 +79,7 @@ glm::vec3 sampleTextureBilinear(const Image& image, const glm::vec2& texCoord)
     glm::vec3 t1 = image.pixels[jint * width + iint];
     glm::vec3 res = widt4*t4+widt3*t3+widt2*t2+widt1*t1;
 
-    //bilinear interpolation
+    
     return res;
 
 }
