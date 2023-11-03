@@ -774,7 +774,14 @@ void BVH::debugDrawLeaf(int leafIndex)
     // Space Complexity: O(1)
 }
 
+// Visual debug methods that demonstrates a split among a given axis, to the given node
+// - splitLine; the % of the axis length in which the split happens
+// - nodeIdx; the index of the given node in m_nodes
+// - axis; 0, 1, 2 for x, y, z respectively
 void BVH::debugDrawSplit(float splitLine, int nodeIdx, uint32_t axis) {
+    // If the index of the node is 1, then the objecct in m_nodes does not represent an actual node of the BVH
+    if (nodeIdx == 1)
+        return;
     BVHInterface::Node n = m_nodes[nodeIdx];
     drawAABB(n.aabb, DrawMode::Wireframe, glm::vec3(0, 0, 1.0f), 1.0f);
     float length;
@@ -805,6 +812,7 @@ void BVH::debugDrawSplit(float splitLine, int nodeIdx, uint32_t axis) {
     
 }
 
+// Visual Debug method that demonstrates the optimal split for the root of the BVH
 void BVH::debugDrawOptimalSplit() {
     using Primitive = BVH::Primitive;
 

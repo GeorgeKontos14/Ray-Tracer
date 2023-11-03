@@ -44,8 +44,10 @@ void postprocessImageWithBloom(const Scene& scene, const Features& features, con
         return;
     int n = 7;
     std::vector<float> filter;
+    // Create the 1X7 filter
     for (int i = 0; i < n; i++)
         filter.push_back(combinations(n, i) / (pow(2, n) - 1));
+    // Create the thresholded image
     Screen thres = Screen(image.resolution(), true);
     glm::vec3 pixel;
     for (int j = 0; j < image.pixels().size(); j++) {
@@ -53,7 +55,8 @@ void postprocessImageWithBloom(const Scene& scene, const Features& features, con
         if (pixel.x >= 0.9f || pixel.y >= 0.9f || pixel.z >= 0.9f)
             thres.pixels()[j] = pixel;
     }
-
+    
+    // Apply filter horizontally
     Screen filtered = Screen(image.resolution(), true);
     for (int j = 0; j < thres.resolution().y; j++) {
         for (int i = 0; i < thres.resolution().x; i++) {
@@ -63,7 +66,7 @@ void postprocessImageWithBloom(const Scene& scene, const Features& features, con
         }
     }
 
-
+    // Apply filter vertically
     for (int j = 0; j < thres.resolution().y; j++) {
         for (int i = 0; i < thres.resolution().x; i++) {
             pixel = thres.pixels()[thres.indexAt(i, j)];
@@ -72,11 +75,19 @@ void postprocessImageWithBloom(const Scene& scene, const Features& features, con
         }
     }
 
+    // Add to original values
     for (int i = 0; i < image.pixels().size(); i++) {
         image.pixels()[i] = image.pixels()[i] + filtered.pixels()[i];  
     }
 }
 
+// Applies the given filter to an image
+// - image; the image from which pixels arre taken
+// - filter; the 1D filter in question
+// - x; x-coordinate of the pixel
+// - y; y-coordinate of the pixel
+// - horizontal; flag that indicates whether the filter is implemented horizontally or vertically
+// - after; the return object
 void applyFilter(Screen& image, std::vector<float> filter, int x, int y, bool horizontal, Screen& after) {
     glm::vec3 res;
     if (horizontal) {
@@ -114,6 +125,7 @@ void applyFilter(Screen& image, std::vector<float> filter, int x, int y, bool ho
 
 }
 
+// Calculate C(n, k)
 unsigned long long int combinations(uint32_t n, uint32_t k)
 {
     if (k == 0 || k == n)
@@ -125,6 +137,7 @@ unsigned long long int combinations(uint32_t n, uint32_t k)
     return res;
 }
 
+// Calculate the factorial
 unsigned long long int factorial(uint32_t k) {
     if (k <= 1)
         return 1;
@@ -186,6 +199,7 @@ size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::s
     std::vector<float> centroidCoord;
     float step = 0;
     float lowerCoord = 0;
+    // Find the lowest coordinate and put the questioned coordinates of all the centroids in a vector
     if (axis == 0) {
         lowerCoord = aabb.lower.x;
         step = (aabb.upper.x - aabb.lower.x) / numBins;
@@ -208,6 +222,7 @@ size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::s
     float minCost = std::numeric_limits<float>::max();
     float minSplitLine;
     int minNA;
+    // We iterate through each possible split, calculate the optimal one by comparing their costs
     for (int i = 1; i < numBins; i++) {
         nA = 0;
         nB = 0;
@@ -224,8 +239,10 @@ size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::s
             minNA = nA;
         }
     }
+    // If minNa has an extreme value, no split is benefitial
     if (minNA >= primitives.size() || minNA == 0)
         return -1;
+    // We rearrange the primitives in the span, such that the ones before the split index are those tha belong to the first bin
     Primitive temp;
     float tempC;
     int i = 0;
