@@ -83,14 +83,15 @@ glm::vec3 computePhongModel(RenderState& state, const glm::vec3& cameraDirection
     // TODO: Implement phong shading
     glm::vec3 V = glm::normalize(cameraDirection);
     glm::vec3 R = glm::reflect(glm::normalize(lightDirection), hitInfo.normal);
+    glm::vec3 ks = hitInfo.material.ks;
     glm::vec3 d = sampleMaterialKd(state, hitInfo) * glm::max(0.0f, glm::dot(hitInfo.normal, glm::normalize(lightDirection)));
     float a = glm::max(0.0f, glm::dot(V, R));
 
 
-    glm::vec3 s = pow(a, hitInfo.material.shininess) * hitInfo.material.ks;
+    glm::vec3 s = pow(a, hitInfo.material.shininess) * ks;
 
     
-    return lightColor * (s + d);
+    return d + lightColor * s;
 }
 
 // TODO: Standard feature
@@ -111,6 +112,7 @@ glm::vec3 computePhongModel(RenderState& state, const glm::vec3& cameraDirection
 glm::vec3 computeBlinnPhongModel(RenderState& state, const glm::vec3& cameraDirection, const glm::vec3& lightDirection, const glm::vec3& lightColor, const HitInfo& hitInfo)
 {
     // TODO: Implement blinn-phong shading
+
     glm::vec3 h = (lightDirection + cameraDirection) / (glm::length(lightDirection + cameraDirection));
     glm::vec3 d = glm::max(0.0f, glm::dot(hitInfo.normal,glm::normalize(lightDirection))) * sampleMaterialKd(state, hitInfo);
     glm::vec3 s = hitInfo.material.ks * pow(glm::max(0.0f, glm::dot(hitInfo.normal, h)), hitInfo.material.shininess);
@@ -128,17 +130,14 @@ glm::vec3 LinearGradient::sample(float ti) const
 {
     int max = components.size() - 1;
 
-    if (1.0f <= ti) 
-        return components[max].color;
-    if (-1.0f >= ti)
-        return components[0].color;
-   
+    ti = glm::clamp(ti, -1.0f, 1.0f);
     int num = 0;
     while (ti >= components[num].t && max >= num)
         num++;
-    Component high = components[num + 1];
-    Component low = components[num];
-    return glm::mix(low.color, high.color, (ti - low.t / high.t - low.t));
+    Component upper = components[num + 1];
+    Component lower = components[num];
+    //(ti-lower.t / upper.t-lower.t) represents the interpolation factor
+    return glm::mix(upper.color, lower.color, (ti - lower.t / upper.t - lower.t));
     
 }
 
@@ -159,9 +158,9 @@ glm::vec3 LinearGradient::sample(float ti) const
 // This method is unit-tested, so do not change the function signature.
 glm::vec3 computeLinearGradientModel(RenderState& state, const glm::vec3& cameraDirection, const glm::vec3& lightDirection, const glm::vec3& lightColor, const HitInfo& hitInfo, const LinearGradient& gradient)
 {
-    float cos = glm::dot(lightDirection, glm::normalize(hitInfo.normal));
+    float cos = glm::dot(lightDirection, hitInfo.normal);
     if (cos < 0) {
         return { 0, 0, 0 };
     }
-    return gradient.sample(cos) * lightColor * cos;
+    return gradient.sample(cos) * lightColor;
 }
